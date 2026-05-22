@@ -27,7 +27,7 @@ class MaterialController extends Controller
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $originalName = $file->getClientOriginalName();
-            $filePath = $file->store('materials', 'public');
+            $filePath = $file->store('materials', 'local');
         }
 
         $icon = 'doc';

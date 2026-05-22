@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ClassroomStudentsExport;
+use App\Models\AuditTrail;
 use App\Models\Classroom;
 use App\Models\FacultyAttendanceRecord;
+use App\Models\Material;
 use App\Models\StudentModuleRecord;
+use App\Models\Topic;
 use App\Models\User;
 use App\Services\AcademicTermService;
 use App\Services\GradingService;
-use App\Models\AuditTrail;
+use App\Services\SystemSettingsService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +32,7 @@ class ClassroomController extends Controller
         /** @var User $faculty */
         $faculty = Auth::user();
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $classrooms = $faculty->classroomsAsFaculty()
             ->where('academic_year', $settings->get('academic_year'))
             ->where('semester', $settings->get('current_semester'))
@@ -83,6 +86,19 @@ class ClassroomController extends Controller
             ->with('enrollmentOpen', $termService->enrollmentOpen());
     }
 
+    public function facultyMaterialSubmissions(Classroom $classroom, Material $material): View
+    {
+        $faculty = Auth::user();
+
+        if ($classroom->faculty_user_id !== $faculty->id) {
+            abort(403);
+        }
+
+        $material->load(['submissions.user']);
+
+        return view('faculty.material-submissions', compact('classroom', 'material'));
+    }
+
     public function facultyCreate(): View
     {
         $classroom = null;
@@ -103,7 +119,7 @@ class ClassroomController extends Controller
         /** @var User $faculty */
         $faculty = Auth::user();
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $validated['academic_year'] = $settings->get('academic_year');
         $validated['semester'] = $settings->get('current_semester');
 
@@ -243,7 +259,7 @@ class ClassroomController extends Controller
 
         $enrolledIds = $student->classroomsAsStudent()->pluck('classrooms.id')->all();
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $classrooms = Classroom::where('status', 'active')
             ->where('academic_year', $settings->get('academic_year'))
             ->where('semester', $settings->get('current_semester'))
@@ -311,6 +327,37 @@ class ClassroomController extends Controller
             ->with('status', 'You have successfully joined "'.$classroom->name.'"!');
     }
 
+    public function studentLeave(Request $request, Classroom $classroom): RedirectResponse
+    {
+        /** @var User $student */
+        $student = Auth::user();
+
+        if (! $student->classroomsAsStudent()->where('classrooms.id', $classroom->id)->exists()) {
+            return redirect()->route('student.classrooms')->withErrors(['classroom' => 'You are not enrolled in this classroom.']);
+        }
+
+        $student->classroomsAsStudent()->detach($classroom->id);
+
+        return redirect()->route('student.classrooms')->with('status', 'You have left "'.$classroom->name.'".');
+    }
+
+    public function studentShow(Classroom $classroom): View
+    {
+        /** @var User $student */
+        $student = Auth::user();
+
+        // Ensure student is enrolled
+        if (! $student->classroomsAsStudent()->where('classrooms.id', $classroom->id)->exists()) {
+            return redirect()->route('student.classrooms')->withErrors(['classroom' => 'You must join this classroom to view its content.']);
+        }
+
+        $classroom->load(['topics.materials' => function ($q) {
+            $q->with('submissions');
+        }]);
+
+        return view('student.classroom-show', compact('classroom'));
+    }
+
     // ─────────────────────────────────────────────
     // ADMIN
     // ─────────────────────────────────────────────
@@ -323,7 +370,7 @@ class ClassroomController extends Controller
 
         $search = trim((string) $request->query('search', ''));
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $classrooms = Classroom::query()
             ->with('faculty:id,name')
             ->withCount('students')
@@ -360,10 +407,58 @@ class ClassroomController extends Controller
         return view('admin.classrooms', compact('classrooms', 'summary', 'statusFilter', 'search'));
     }
 
+    public function adminListJson(Request $request)
+    {
+        $classrooms = Classroom::query()
+            ->with('faculty:id,name')
+            ->withCount('students')
+            ->orderBy('name')
+            ->get()
+            ->map(function (Classroom $c) {
+                return [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'code' => $c->code,
+                    'schedule' => $c->schedule,
+                    'faculty_name' => $c->faculty?->name ?? 'Unassigned',
+                    'student_count' => $c->students_count,
+                    'status' => $c->status,
+                ];
+            });
+
+        return response()->json($classrooms);
+    }
+
+    /**
+     * Get classroom students as JSON for polling updates.
+     */
+    public function adminStudentsJson(Classroom $classroom)
+    {
+        $students = $classroom->students()->select('users.id', 'users.name', 'users.email', 'users.student_number', 'users.academic_level')
+            ->orderBy('users.name')
+            ->get()
+            ->map(function ($s) {
+                return [
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'email' => $s->email,
+                    'student_number' => $s->student_number,
+                    'academic_level' => $s->academic_level,
+                    'enrolled_at' => $s->pivot?->enrolled_at,
+                ];
+            });
+
+        return response()->json([
+            'total' => count($students),
+            'students' => $students,
+        ]);
+    }
+
     public function adminCreate(): View
     {
         $classroom = null;
         $faculties = User::where('role', 'faculty')->orderBy('name')->get();
+
         return view('admin.classroom-form', compact('classroom', 'faculties'));
     }
 
@@ -378,13 +473,13 @@ class ClassroomController extends Controller
             'faculty_user_id' => ['nullable', 'exists:users,id'],
         ]);
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $validated['academic_year'] = $settings->get('academic_year');
         $validated['semester'] = $settings->get('current_semester');
 
         $classroom = Classroom::create($validated);
 
-        AuditTrail::log('Create', 'Classrooms', 'Admin created classroom: ' . $classroom->name . ' (' . $classroom->code . ')');
+        AuditTrail::log('Create', 'Classrooms', 'Admin created classroom: '.$classroom->name.' ('.$classroom->code.')');
 
         return redirect()
             ->route('admin.classrooms')
@@ -422,7 +517,7 @@ class ClassroomController extends Controller
         $classroom->status = $classroom->status === 'active' ? 'inactive' : 'active';
         $classroom->save();
 
-        AuditTrail::log('Update', 'Classrooms', 'Admin updated status of ' . $classroom->name . ' to ' . $classroom->status);
+        AuditTrail::log('Update', 'Classrooms', 'Admin updated status of '.$classroom->name.' to '.$classroom->status);
 
         return back()->with('status', 'Classroom "'.$classroom->name.'" is now '.ucfirst($classroom->status).'.');
     }
@@ -436,7 +531,7 @@ class ClassroomController extends Controller
         $code = $classroom->code;
         $classroom->delete();
 
-        AuditTrail::log('Delete', 'Classrooms', 'Admin permanently deleted classroom: ' . $name . ' (' . $code . ')');
+        AuditTrail::log('Delete', 'Classrooms', 'Admin permanently deleted classroom: '.$name.' ('.$code.')');
 
         return redirect()->route('admin.classrooms')->with('status', 'Classroom "'.$name.'" has been permanently deleted.');
     }
@@ -521,10 +616,12 @@ class ClassroomController extends Controller
         return back()->with('status', 'Topic added.');
     }
 
-    public function destroyTopic(Classroom $classroom, \App\Models\Topic $topic): RedirectResponse
+    public function destroyTopic(Classroom $classroom, Topic $topic): RedirectResponse
     {
         $this->authorizeClassroom($classroom);
-        if ((int)$topic->classroom_id !== (int)$classroom->id) abort(403);
+        if ((int) $topic->classroom_id !== (int) $classroom->id) {
+            abort(403);
+        }
 
         $topic->delete();
 
@@ -540,6 +637,7 @@ class ClassroomController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'body' => ['nullable', 'string'],
             'type' => ['required', 'in:material,assignment,quiz'],
+            'grading_section' => ['required', 'in:prelim,midterm,finals'],
             'file' => ['nullable', 'file', 'max:10240'], // 10MB
         ]);
 
@@ -549,26 +647,26 @@ class ClassroomController extends Controller
             'title' => $validated['title'],
             'body' => $validated['body'],
             'type' => $validated['type'],
+            'grading_section' => $validated['grading_section'] ?? 'prelim',
         ];
 
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            // For now, let's just use path-based storage or I could use the new blob logic if preferred.
-            // But the user didn't explicitly ask for blob here. I'll use path for now as legacy.
-            // Wait, the previous task was to use blob. I should probably use blob.
-            $data['file_path'] = $file->store('materials', 'public');
+            $data['file_path'] = $file->store('materials', 'local');
             $data['original_filename'] = $file->getClientOriginalName();
         }
 
         $classroom->materials()->create($data);
 
-        return back()->with('status', ucfirst($validated['type']) . ' added.');
+        return back()->with('status', ucfirst($validated['type']).' added.');
     }
 
-    public function destroyMaterial(Classroom $classroom, \App\Models\Material $material): RedirectResponse
+    public function destroyMaterial(Classroom $classroom, Material $material): RedirectResponse
     {
         $this->authorizeClassroom($classroom);
-        if ((int)$material->classroom_id !== (int)$classroom->id) abort(403);
+        if ((int) $material->classroom_id !== (int) $classroom->id) {
+            abort(403);
+        }
 
         $material->delete();
 

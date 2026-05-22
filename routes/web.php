@@ -74,14 +74,16 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('dashboard');
         Route::get('/profile', [StudentController::class, 'profile'])->name('profile');
         Route::get('/announcements', [AnnouncementController::class, 'studentIndex'])->name('announcements.index');
-        Route::get('/enrollment', [StudentController::class, 'enrollment'])->name('enrollment');
-        Route::post('/enrollment', [StudentController::class, 'storeEnrollment'])->name('enrollment.store');
-        Route::post('/enrollment/{moduleRecord}/drop', [StudentController::class, 'dropEnrollment'])->name('enrollment.drop');
+        // Legacy enrollment removed — use Subject Code join flow instead
+        Route::post('/classrooms/join', [StudentController::class, 'joinByCode'])->name('classrooms.join');
         Route::post('/modules/records', [StudentController::class, 'storeModuleRecord'])->name('modules.records.store');
         Route::delete('/modules/records/{moduleRecord}', [StudentController::class, 'deleteModuleRecord'])->name('modules.records.destroy');
         Route::get('/grades', [StudentController::class, 'grades'])->name('grades');
         Route::get('/classrooms', [ClassroomController::class, 'studentIndex'])->name('classrooms');
+        Route::get('/classrooms/{classroom}', [ClassroomController::class, 'studentShow'])->name('classrooms.show');
         Route::post('/classrooms/{classroom}/enroll', [ClassroomController::class, 'studentEnroll'])->middleware('classroom.active')->name('classrooms.enroll');
+        Route::delete('/classrooms/{classroom}/unenroll', [ClassroomController::class, 'studentLeave'])->name('classrooms.unenroll');
+        Route::post('/classrooms/{classroom}/materials/{material}/submit', [StudentController::class, 'submitMaterial'])->name('classrooms.materials.submit');
         Route::get('/attendance', [StudentController::class, 'attendance'])->name('attendance');
         Route::get('/documents', [StudentController::class, 'documents'])->name('documents');
         Route::post('/documents', [StudentController::class, 'storeDocument'])->name('documents.store');
@@ -109,9 +111,7 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::get('/grades/load-today-attendance', [FacultyController::class, 'loadTodayAttendance'])->name('grades.load-today-attendance');
         Route::post('/grades/records', [FacultyController::class, 'storeAttendanceRecord'])->middleware('classroom.active')->name('grades.records.store');
         Route::patch('/grades/records/{attendanceRecord}', [FacultyController::class, 'updateAttendanceRecord'])->name('grades.records.update');
-        Route::get('/enrollments', [FacultyController::class, 'enrollments'])->name('enrollments');
-        Route::patch('/enrollments/{moduleRecord}/approve', [FacultyController::class, 'approveEnrollment'])->name('enrollments.approve');
-        Route::patch('/enrollments/{moduleRecord}/section', [FacultyController::class, 'assignSection'])->name('enrollments.section');
+        // Legacy enrollment management removed in favor of Subject-Code classroom system.
         Route::get('/classrooms', [ClassroomController::class, 'facultyIndex'])->name('classrooms');
         Route::get('/classrooms/create', [ClassroomController::class, 'facultyCreate'])->name('classrooms.create');
         Route::post('/classrooms', [ClassroomController::class, 'facultyStore'])->name('classrooms.store');
@@ -134,6 +134,7 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::delete('/classrooms/{classroom}/topics/{topic}', [ClassroomController::class, 'destroyTopic'])->name('classrooms.topics.destroy');
         Route::post('/classrooms/{classroom}/materials', [ClassroomController::class, 'storeMaterial'])->name('classrooms.materials.store');
         Route::delete('/classrooms/{classroom}/materials/{material}', [ClassroomController::class, 'destroyMaterial'])->name('classrooms.materials.destroy');
+        Route::get('/classrooms/{classroom}/materials/{material}/submissions', [ClassroomController::class, 'facultyMaterialSubmissions'])->name('classrooms.materials.submissions');
 
         Route::get('/settings', [FacultyController::class, 'settings'])->name('settings');
         Route::post('/settings/password', [FacultyController::class, 'updatePassword'])->name('settings.password');
@@ -151,14 +152,13 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::patch('/grades/{moduleRecord}/verify', [AdminController::class, 'verifyGrade'])->name('grades.verify');
         Route::patch('/grades/{moduleRecord}/update', [AdminController::class, 'updateGrade'])->name('grades.update');
         Route::get('/grades/generator', [AdminController::class, 'exportGrades'])->name('grades.export');
-        Route::get('/enrollments', [AdminController::class, 'enrollments'])->name('enrollments');
-        Route::patch('/enrollments/{moduleRecord}/approve', [AdminController::class, 'approveEnrollment'])->name('enrollments.approve');
-        Route::patch('/enrollments/{moduleRecord}/section', [AdminController::class, 'assignSection'])->name('enrollments.section');
-        Route::patch('/enrollments/{moduleRecord}/encode', [AdminController::class, 'encodeCourse'])->name('enrollments.encode');
+        // Legacy enrollment management removed in favor of Subject-Code classroom system.
         Route::get('/classrooms', [ClassroomController::class, 'adminIndex'])->name('classrooms');
+        Route::get('/classrooms/list-json', [ClassroomController::class, 'adminListJson'])->name('classrooms.list.json');
         Route::get('/classrooms/create', [ClassroomController::class, 'adminCreate'])->name('classrooms.create');
         Route::post('/classrooms', [ClassroomController::class, 'adminStore'])->name('classrooms.store');
         Route::get('/classrooms/{classroom}', [ClassroomController::class, 'adminShow'])->name('classrooms.show');
+        Route::get('/classrooms/{classroom}/students-json', [ClassroomController::class, 'adminStudentsJson'])->name('classrooms.students.json');
         Route::patch('/classrooms/{classroom}/status', [ClassroomController::class, 'adminToggleStatus'])->name('classrooms.status');
         Route::delete('/classrooms/{classroom}', [ClassroomController::class, 'adminDestroy'])->name('classrooms.destroy');
         Route::post('/classrooms/{classroom}/assign-faculty', [ClassroomController::class, 'adminAssignFaculty'])->name('classrooms.assign-faculty');
@@ -177,13 +177,13 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::get('/faculty', [AdminController::class, 'facultyDirectory'])->name('faculty');
         Route::get('/faculty/{user}/show', [AdminController::class, 'facultyShow'])->name('faculty.show');
         Route::patch('/faculty/{user}/toggle-status', [AdminController::class, 'toggleFacultyStatus'])->name('faculty.toggle-status');
-        
+
         Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('users.show');
         Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
         Route::patch('/users/{user}/edit', [AdminController::class, 'editUser']);
         Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('users.delete');
         Route::patch('/users/{user}/activate', [AdminController::class, 'toggleUserStatus'])->name('users.activate');
-        
+
         // Bulk import routes
         Route::get('/users/template/student', [AdminController::class, 'downloadStudentTemplate'])->name('users.template.student');
         Route::get('/users/template/faculty', [AdminController::class, 'downloadFacultyTemplate'])->name('users.template.faculty');

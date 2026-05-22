@@ -57,7 +57,7 @@
         {{-- Stats Row --}}
         <div class="grid gap-4 sm:grid-cols-3">
             <div class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6 text-center">
-                <p class="text-4xl font-black text-green-600">{{ count($students) }}</p>
+                <p id="facultyStudentCount" class="text-4xl font-black text-green-600">{{ count($students) }}</p>
                 <p class="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">Students</p>
             </div>
             <div class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6 text-center">
@@ -72,8 +72,110 @@
 
         <div class="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
             <div class="space-y-6">
-                {{-- Content Management (Decentralized Authority) --}}
-                <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
+                {{-- Classroom Tabs: Classwork (default) / People --}}
+                <div class="rounded-3xl bg-white border border-slate-200 shadow-sm p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <button id="tab-classwork" class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold">Classwork</button>
+                            <button id="tab-people" class="px-3 py-2 rounded-xl bg-slate-50 text-sm font-semibold">People</button>
+                        </div>
+                        <div class="text-sm text-slate-500">Manage classroom content and participants</div>
+                    </div>
+
+                    <div id="classworkSection">
+                        <h3 class="text-lg font-bold text-slate-900 mb-2">Classwork</h3>
+                        <p class="text-sm text-slate-500 mb-4">Learning materials are organized by grading section. Select a section to add content.</p>
+
+                        @php
+                            $allMaterials = collect($classroom->topics)->flatMap(function($t){ return $t->materials; });
+                            $sections = ['prelim' => 'Prelim', 'midterm' => 'Midterm', 'finals' => 'Finals'];
+                        @endphp
+
+                        <div class="grid gap-4 md:grid-cols-3">
+                            @foreach($sections as $key => $label)
+                                <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="font-bold text-slate-800">{{ $label }}</h4>
+                                        <button onclick="openAddMaterialModal(null, '', '{{ $key }}')" class="text-xs font-bold uppercase tracking-wider text-green-600">+ Add Content</button>
+                                    </div>
+                                    <div class="space-y-3 max-h-72 overflow-y-auto">
+                                        @php $sectionMats = $allMaterials->filter(function($m) use ($key){ return (($m->grading_section ?? 'prelim') === $key); })->values(); @endphp
+                                        @forelse($sectionMats as $mat)
+                                            <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-white shadow-sm">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="h-8 w-8 rounded-lg bg-blue-100 grid place-items-center text-blue-700"> 
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-sm font-semibold text-slate-800">{{ $mat->title }}</p>
+                                                        <p class="text-[10px] uppercase font-bold text-slate-400 tracking-tight">{{ $mat->type }}</p>
+                                                    </div>
+                                                </div>
+                                                <form action="{{ route('faculty.classrooms.materials.destroy', [$classroom->id, $mat->id]) }}" method="POST">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="p-1.5 text-slate-400 hover:text-rose-500">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        @empty
+                                            <p class="text-xs text-slate-400 italic">No materials yet in this section.</p>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div id="peopleSection" class="hidden">
+                        <h3 class="text-lg font-bold text-slate-900 mb-2">People</h3>
+                        <p class="text-sm text-slate-500 mb-4">Members of this classroom: faculty and joined students.</p>
+
+                        {{-- Enrolled Students (moved into People tab) --}}
+                        @if(count($students) > 0)
+                            <div class="space-y-3">
+                                @foreach($students as $student)
+                                    @php
+                                        $statusBadge = match($student['enrollment_status'] ?? 'pending') {
+                                            'enrolled' => 'bg-emerald-100 text-emerald-700',
+                                            'dropped'  => 'bg-rose-100 text-rose-700',
+                                            default    => 'bg-amber-100 text-amber-700',
+                                        };
+                                    @endphp
+                                    <article class="flex items-center gap-4 rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                                        <div class="h-10 w-10 flex-shrink-0 rounded-full bg-green-600 grid place-items-center text-white text-sm font-bold">
+                                            {{ $student['initials'] }}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-bold text-slate-900 truncate">{{ $student['name'] }}</p>
+                                            <p class="text-xs text-slate-500 truncate">{{ $student['email'] }}</p>
+                                            <div class="flex flex-wrap gap-2 mt-1.5">
+                                                <span class="inline-flex rounded-full {{ $statusBadge }} px-2 py-0.5 text-xs font-semibold capitalize">
+                                                    {{ ucfirst($student['enrollment_status'] ?? 'pending') }}
+                                                </span>
+                                                @if($student['section'])
+                                                    <span class="inline-flex rounded-full bg-sky-100 text-sky-700 px-2 py-0.5 text-xs font-semibold">Sec: {{ $student['section'] }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div class="text-right flex-shrink-0">
+                                            <p class="text-lg font-black {{ $student['grade'] ? 'text-slate-900' : 'text-slate-300' }}">{{ $student['grade'] ?? '—' }}</p>
+                                            @if($student['attendance_rate'])
+                                                <p class="text-xs text-slate-400">{{ $student['attendance_rate'] }} present</p>
+                                            @endif
+                                        </div>
+                                    </article>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+                                <p class="text-sm text-slate-500">No students have joined this classroom yet.</p>
+                                <p class="text-xs text-slate-400 mt-1">Students join using the classroom code in the Student Portal.</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
                     <div class="flex items-center justify-between mb-6">
                         <div>
                             <h3 class="text-lg font-bold text-slate-900">Topics & Content</h3>
@@ -130,13 +232,16 @@
                                                 <p class="text-[10px] uppercase font-bold text-slate-400 tracking-tight">{{ $mat->type }}</p>
                                             </div>
                                         </div>
-                                        <form action="{{ route('faculty.classrooms.materials.destroy', [$classroom->id, $mat->id]) }}" method="POST">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-rose-500 transition">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                            </button>
-                                        </form>
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-xs text-slate-400">{{ $mat->submissions()->count() }} submissions</div>
+                                            <form action="{{ route('faculty.classrooms.materials.destroy', [$classroom->id, $mat->id]) }}" method="POST">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-rose-500 transition">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 @empty
                                     <p class="text-xs text-slate-400 italic ml-2">No content items in this topic.</p>
@@ -151,55 +256,7 @@
                     @endforelse
                 </section>
 
-                {{-- Enrolled Students --}}
-                <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
-                    <h3 class="text-lg font-bold text-slate-900 mb-1">Enrolled Students</h3>
-                    <p class="text-sm text-slate-500 mb-5">{{ count($students) }} student{{ count($students) !== 1 ? 's' : '' }} in this classroom.</p>
-
-                    @if(count($students) > 0)
-                        <div class="space-y-3">
-                            @foreach($students as $student)
-                                @php
-                                    $statusBadge = match($student['enrollment_status']) {
-                                        'enrolled' => 'bg-emerald-100 text-emerald-700',
-                                        'dropped'  => 'bg-rose-100 text-rose-700',
-                                        default    => 'bg-amber-100 text-amber-700',
-                                    };
-                                @endphp
-                                <article class="flex items-center gap-4 rounded-2xl bg-slate-50 border border-slate-100 p-4">
-                                    <div class="h-10 w-10 flex-shrink-0 rounded-full bg-green-600 grid place-items-center text-white text-sm font-bold">
-                                        {{ $student['initials'] }}
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-bold text-slate-900 truncate">{{ $student['name'] }}</p>
-                                        <p class="text-xs text-slate-500 truncate">{{ $student['email'] }}</p>
-                                        <div class="flex flex-wrap gap-2 mt-1.5">
-                                            <span class="inline-flex rounded-full {{ $statusBadge }} px-2 py-0.5 text-xs font-semibold capitalize">
-                                                {{ ucfirst($student['enrollment_status']) }}
-                                            </span>
-                                            @if($student['section'])
-                                                <span class="inline-flex rounded-full bg-sky-100 text-sky-700 px-2 py-0.5 text-xs font-semibold">Sec: {{ $student['section'] }}</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    <div class="text-right flex-shrink-0">
-                                        <p class="text-lg font-black {{ $student['grade'] ? 'text-slate-900' : 'text-slate-300' }}">
-                                            {{ $student['grade'] ?? '—' }}
-                                        </p>
-                                        @if($student['attendance_rate'])
-                                            <p class="text-xs text-slate-400">{{ $student['attendance_rate'] }} present</p>
-                                        @endif
-                                    </div>
-                                </article>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-                            <p class="text-sm text-slate-500">No students have joined this classroom yet.</p>
-                            <p class="text-xs text-slate-400 mt-1">Students enroll via the Student Portal → Classrooms.</p>
-                        </div>
-                    @endif
-                </section>
+                {{-- (People tab moved above) --}}
             </div>
 
             {{-- Attendance + Grades Side Panel --}}
@@ -290,6 +347,14 @@
             <form action="{{ route('faculty.classrooms.materials.store', $classroom->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="topic_id" id="targetTopicId">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Grading Section</label>
+                    <select name="grading_section" id="gradingSectionSelect" required class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 focus:border-green-500 focus:outline-none">
+                        <option value="prelim">Prelim</option>
+                        <option value="midterm">Midterm</option>
+                        <option value="finals">Finals</option>
+                    </select>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Title</label>
@@ -334,11 +399,53 @@
                 }
             });
 
-            window.openAddMaterialModal = function(topicId, topicName) {
+            window.openAddMaterialModal = function(topicId, topicName, gradingSection) {
                 document.getElementById('targetTopicId').value = topicId;
                 document.getElementById('targetTopicName').textContent = topicName;
+                var sel = document.getElementById('gradingSectionSelect');
+                if (sel && gradingSection) sel.value = gradingSection;
                 document.getElementById('addMaterialModal').classList.remove('hidden');
             };
+
+            // Tab behavior
+            var tabClasswork = document.getElementById('tab-classwork');
+            var tabPeople = document.getElementById('tab-people');
+            var classworkSection = document.getElementById('classworkSection');
+            var peopleSection = document.getElementById('peopleSection');
+
+            function showClasswork() {
+                classworkSection.classList.remove('hidden');
+                peopleSection.classList.add('hidden');
+                tabClasswork.classList.add('bg-emerald-600','text-white');
+                tabPeople.classList.remove('bg-emerald-600','text-white');
+                tabPeople.classList.add('bg-slate-50');
+            }
+
+            function showPeople() {
+                classworkSection.classList.add('hidden');
+                peopleSection.classList.remove('hidden');
+                tabPeople.classList.remove('bg-slate-50');
+                tabPeople.classList.add('bg-emerald-600','text-white');
+                tabClasswork.classList.remove('bg-emerald-600','text-white');
+                tabClasswork.classList.add('bg-slate-50');
+            }
+
+            tabClasswork.addEventListener('click', showClasswork);
+            tabPeople.addEventListener('click', showPeople);
+            // default
+            showClasswork();
+            // Poll admin list json to refresh student count for this classroom
+            setInterval(async function(){
+                try {
+                    const res = await fetch('{{ route('admin.classrooms.list.json') }}');
+                    const list = await res.json();
+                    const me = list.find(c => c.id === {{ $classroom->id }});
+                    if (me) {
+                        const el = document.getElementById('facultyStudentCount');
+                        if (el) el.textContent = me.student_count;
+                    }
+                } catch (e) { console.error(e); }
+            }, 5000);
         })();
     </script>
 @endsection

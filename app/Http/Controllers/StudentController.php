@@ -4,14 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreStudentEnrollmentRequest;
 use App\Http\Requests\StoreStudentModuleRecordRequest;
+use App\Models\AuditTrail;
+use App\Models\Classroom;
+use App\Models\DocumentRequest;
+use App\Models\FacultyAttendanceRecord;
+use App\Models\ForumReply;
+use App\Models\ForumThread;
+use App\Models\Material;
+use App\Models\MaterialSubmission;
 use App\Models\StudentModuleRecord;
 use App\Services\GradingService;
+use App\Services\SystemSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\DocumentRequest;
-use App\Models\ForumReply;
-use App\Models\ForumThread;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -63,7 +69,43 @@ class StudentController extends Controller
         $totalUnits = 18;
         $totalSubjects = 5;
 
-        return view('student.schedule', compact('schedule', 'totalUnits', 'totalSubjects'));
+        // Merge in joined classroom schedules
+        $student = Auth::user();
+        $classrooms = $student->classroomsAsStudent()->where('status', 'active')->get();
+        $dayMap = [
+            'mon' => 'Mon', 'tue' => 'Tue', 'wed' => 'Wed', 'thu' => 'Thu', 'fri' => 'Fri', 'sat' => 'Sat', 'sun' => 'Sun',
+        ];
+
+        foreach ($classrooms as $c) {
+            if (! $c->schedule) {
+                continue;
+            }
+            // try to detect a day token
+            if (preg_match('/(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i', $c->schedule, $m)) {
+                $day = strtolower(substr($m[0], 0, 3));
+                $key = $dayMap[$day] ?? 'Misc';
+            } else {
+                $key = 'Misc';
+            }
+
+            if (! isset($schedule[$key])) {
+                $schedule[$key] = [];
+            }
+
+            $schedule[$key][] = [
+                'time' => $c->schedule,
+                'subject' => $c->name,
+                'code' => $c->code,
+                'room' => $c->room ?? null,
+                'faculty' => optional($c->faculty)->name ?? $c->faculty_user?->name ?? 'Staff',
+            ];
+        }
+
+        // Fetch final exam start date from system settings
+        $settings = new SystemSettingsService;
+        $finalExamStartDate = $settings->get('final_exam_start');
+
+        return view('student.schedule', compact('schedule', 'totalUnits', 'totalSubjects', 'finalExamStartDate'));
     }
 
     public function notifications(): View
@@ -93,7 +135,7 @@ class StudentController extends Controller
     {
         $catalogByCode = collect($this->enrollmentCatalog())->keyBy('code');
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         // All records for this user in the CURRENT term
         $allRecords = StudentModuleRecord::query()
             ->where('user_id', Auth::id())
@@ -145,6 +187,70 @@ class StudentController extends Controller
         return view('student.enrollment', compact('availableModules', 'enrolledModules'));
     }
 
+    public function joinByCode(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'code' => ['required', 'string', 'max:20'],
+        ]);
+
+        $code = strtoupper(trim((string) $request->input('code')));
+
+        $settings = new SystemSettingsService;
+        $classroom = Classroom::query()
+            ->where('code', $code)
+            ->where('academic_year', $settings->get('academic_year'))
+            ->where('semester', $settings->get('current_semester'))
+            ->first();
+
+        if ($classroom === null || $classroom->status !== 'active') {
+            return redirect()->route('student.classrooms')
+                ->withErrors(['code' => 'Classroom not found or not available. Please check the subject code and try again.']);
+        }
+
+        $student = Auth::user();
+
+        if ($student->classroomsAsStudent()->where('classrooms.id', $classroom->id)->exists()) {
+            return redirect()->route('student.classrooms')
+                ->with('status', 'You have already joined "'.$classroom->name.'".');
+        }
+
+        $student->classroomsAsStudent()->attach($classroom->id, ['enrolled_at' => now()]);
+
+        return redirect()->route('student.classrooms')
+            ->with('status', 'You have successfully joined "'.$classroom->name.'".');
+    }
+
+    public function submitMaterial(Request $request, Classroom $classroom, Material $material): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:10240'],
+        ]);
+
+        $student = Auth::user();
+
+        // Ensure student is enrolled in the classroom
+        if (! $student->classroomsAsStudent()->where('classrooms.id', $classroom->id)->exists()) {
+            return redirect()->route('student.classrooms')->withErrors(['classroom' => 'You must join this classroom to submit work.']);
+        }
+
+        // Ensure material belongs to this classroom
+        if ($material->classroom_id !== $classroom->id) {
+            return redirect()->route('student.classrooms')->withErrors(['material' => 'Invalid material reference.']);
+        }
+
+        $file = $request->file('file');
+        $path = $file->store('submissions', 'local');
+
+        $submission = new MaterialSubmission;
+        $submission->material_id = $material->id;
+        $submission->user_id = $student->id;
+        $submission->file_path = $path;
+        $submission->original_filename = $file->getClientOriginalName();
+        $submission->save();
+
+        return redirect()->route('student.classrooms.show', $classroom->id)->with('status', 'Submission uploaded successfully.');
+    }
+
     public function storeEnrollment(StoreStudentEnrollmentRequest $request): RedirectResponse
     {
         $validated = $request->validated();
@@ -160,7 +266,7 @@ class StudentController extends Controller
                 ->withInput();
         }
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         StudentModuleRecord::query()->create([
             'user_id' => Auth::id(),
             'module_name' => (string) $module['name'],
@@ -191,7 +297,7 @@ class StudentController extends Controller
             })
             ->all();
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $allRecords = StudentModuleRecord::query()
             ->where('user_id', Auth::id())
             ->where('academic_year', $settings->get('academic_year'))
@@ -296,7 +402,7 @@ class StudentController extends Controller
             $isExistingRecord = false;
         }
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $record->module_name = (string) $validated['module_name'];
         $record->module_code = $moduleCode;
         $record->academic_year = $settings->get('academic_year');
@@ -415,7 +521,7 @@ class StudentController extends Controller
 
     public function grades(): View
     {
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $allRecords = StudentModuleRecord::query()
             ->where('user_id', Auth::id())
             ->where('academic_year', $settings->get('academic_year'))
@@ -424,25 +530,25 @@ class StudentController extends Controller
             ->get();
 
         $grading = new GradingService;
-        $gpas = $allRecords->map(fn($r) => $grading->toGpa((float)$r->grade_percent))
-            ->filter(fn($g) => is_string($g) && $g !== 'Dropped')
-            ->map(fn($g) => (float)$g);
+        $gpas = $allRecords->map(fn ($r) => $grading->toGpa((float) $r->grade_percent))
+            ->filter(fn ($g) => is_string($g) && $g !== 'Dropped')
+            ->map(fn ($g) => (float) $g);
 
         $avgGrade = $gpas->count() ? number_format($gpas->avg(), 2) : '0';
         $totalCourses = $allRecords->count();
 
         $summary = [
             ['label' => 'Overall Average (GPA)', 'value' => $avgGrade],
-            ['label' => 'Academic Term', 'value' => $settings->get('academic_year') . ' | ' . $settings->get('current_semester')],
+            ['label' => 'Academic Term', 'value' => $settings->get('academic_year').' | '.$settings->get('current_semester')],
             ['label' => 'Courses', 'value' => (string) $totalCourses],
         ];
 
         $courses = $allRecords->map(function ($r) {
             return [
                 'name' => $r->module_name,
-                'description' => 'Academic Code: ' . $r->module_code,
-                'grade' => number_format((float)$r->grade_percent, 0) . '%',
-                'progress' => (float)$r->grade_percent,
+                'description' => 'Academic Code: '.$r->module_code,
+                'grade' => number_format((float) $r->grade_percent, 0).'%',
+                'progress' => (float) $r->grade_percent,
                 'quizzes' => [],
             ];
         })->all();
@@ -464,7 +570,7 @@ class StudentController extends Controller
             ['label' => 'Total',      'value' => (string) $allRequests->count()],
         ];
 
-        $requests = $allRequests->map(function($r) {
+        $requests = $allRequests->map(function ($r) {
             $note = null;
             if ($r->status === 'Completed') {
                 $note = 'Ready for pick-up at the Registrar\'s Office.';
@@ -481,7 +587,7 @@ class StudentController extends Controller
                 'requested' => $r->created_at->format('M j, Y'),
                 'urgency' => $r->urgency,
                 'status' => $r->status,
-                'note' => $note
+                'note' => $note,
             ];
         });
 
@@ -518,7 +624,7 @@ class StudentController extends Controller
             ->where('is_visible', true)
             ->groupBy('category')
             ->get()
-            ->map(fn($t) => ['title' => $t->category, 'count' => $t->count]);
+            ->map(fn ($t) => ['title' => $t->category, 'count' => $t->count]);
 
         return view('student.forum', compact('threads', 'topics'));
     }
@@ -559,16 +665,17 @@ class StudentController extends Controller
     public function reportForumThread(ForumThread $forumThread): RedirectResponse
     {
         $forumThread->update(['is_flagged' => true]);
+
         return back()->with('status', 'This discussion has been reported and will be reviewed by administrators.');
     }
 
     public function attendance(): View
     {
-        $settings = new \App\Services\SystemSettingsService();
-        $recordsRaw = \App\Models\FacultyAttendanceRecord::query()
+        $settings = new SystemSettingsService;
+        $recordsRaw = FacultyAttendanceRecord::query()
             ->where('academic_year', $settings->get('academic_year'))
             ->where('semester', $settings->get('current_semester'))
-            ->where('student_name', 'like', '%' . Auth::user()->name . '%')
+            ->where('student_name', 'like', '%'.Auth::user()->name.'%')
             ->orderByDesc('attendance_date')
             ->get();
 
@@ -583,7 +690,7 @@ class StudentController extends Controller
             ['label' => 'Present',      'value' => (string) $present, 'color' => 'emerald'],
             ['label' => 'Absent',       'value' => (string) $absent,  'color' => 'rose'],
             ['label' => 'Late',         'value' => (string) $late,    'color' => 'amber'],
-            ['label' => 'Attendance Rate', 'value' => $rate . '%', 'color' => 'sky'],
+            ['label' => 'Attendance Rate', 'value' => $rate.'%', 'color' => 'sky'],
         ];
 
         $records = $recordsRaw->map(function ($r) {
@@ -609,6 +716,7 @@ class StudentController extends Controller
 
         return view('student.attendance', compact('summary', 'records', 'courseBreakdown'));
     }
+
     public function updatePassword(Request $request): RedirectResponse
     {
         $request->validate([
@@ -621,7 +729,7 @@ class StudentController extends Controller
                 'regex:/[a-z]/',
                 'regex:/[A-Z]/',
                 'regex:/[0-9]/',
-                'regex:/[^A-Za-z0-9]/'
+                'regex:/[^A-Za-z0-9]/',
             ],
         ], [
             'new_password.regex' => 'The password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
@@ -634,8 +742,16 @@ class StudentController extends Controller
             'force_password_reset' => false,
         ]);
 
-        \App\Models\AuditTrail::log('Update', 'Security', 'Student updated their password.');
+        $request->session()->forget(['force_password_change', 'force_password_change_message']);
 
-        return back()->with('status', 'Password updated successfully.');
+        AuditTrail::log('Update', 'Security', 'Student updated their password.');
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()
+            ->route('login')
+            ->with('status', 'Password updated successfully. Please log in with your new credentials.');
     }
 }

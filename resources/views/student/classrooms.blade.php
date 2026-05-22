@@ -25,6 +25,16 @@
                 You are enrolled in <strong>{{ count($myClassrooms) }}</strong> classroom{{ count($myClassrooms) !== 1 ? 's' : '' }}.
                 <strong>{{ count($openClassrooms) }}</strong> more available to join.
             </p>
+            <div class="mt-4">
+                <form method="POST" action="{{ route('student.classrooms.join') }}" class="flex gap-2 max-w-md">
+                    @csrf
+                    <input name="code" placeholder="Enter classroom code (e.g. MATH301)" required maxlength="20" class="w-full rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm text-white placeholder-white/70 focus:outline-none">
+                    <button type="submit" class="rounded-xl bg-white text-green-700 px-4 py-2 font-semibold">Join</button>
+                </form>
+                @if($errors->has('code'))
+                    <p class="mt-2 text-sm text-rose-100">{{ $errors->first('code') }}</p>
+                @endif
+            </div>
         </section>
 
         {{-- My Classrooms --}}
@@ -42,7 +52,7 @@
                                 default    => ['bg' => 'bg-amber-100',   'text' => 'text-amber-700',   'label' => 'Pending'],
                             };
                         @endphp
-                        <article class="rounded-3xl border border-emerald-200 bg-emerald-50/40 p-5 flex flex-col">
+                        <article class="rounded-3xl border border-emerald-200 bg-emerald-50/40 p-5 flex flex-col relative">
                             <div class="flex items-start justify-between gap-3 mb-3">
                                 <div class="h-10 w-10 rounded-2xl bg-green-600 text-white grid place-items-center flex-shrink-0">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
@@ -50,6 +60,16 @@
                                 <span class="inline-flex rounded-full {{ $statusBadge['bg'] }} {{ $statusBadge['text'] }} px-3 py-1 text-xs font-bold flex-shrink-0">
                                     {{ $statusBadge['label'] }}
                                 </span>
+                                <div class="relative">
+                                    <button onclick="document.getElementById('menu-{{ $room['id'] }}').classList.toggle('hidden')" class="rounded-full p-1.5 text-slate-600 hover:bg-white/30">⋯</button>
+                                    <div id="menu-{{ $room['id'] }}" class="hidden absolute right-0 mt-2 w-44 rounded-xl bg-white border border-slate-100 shadow-lg z-50">
+                                        <form method="POST" action="{{ route('student.classrooms.unenroll', $room['id']) }}" class="p-3" onsubmit="return confirm('Leave this classroom?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="w-full text-left text-sm text-rose-600 font-semibold">Leave Classroom</button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
 
                             <h4 class="text-base font-bold text-slate-900">{{ $room['name'] }}</h4>
@@ -82,7 +102,7 @@
         {{-- Available Classrooms --}}
         <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
             <h3 class="text-lg font-bold text-slate-900 mb-1">Available Classrooms</h3>
-            <p class="text-sm text-slate-500 mb-5">Active classrooms open for enrollment. Click <strong>Join</strong> to enroll.</p>
+            <p class="text-sm text-slate-500 mb-5">Active classrooms. Click <strong>Join</strong> to immediately join a classroom.</p>
 
             @if(count($openClassrooms) > 0)
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -114,19 +134,10 @@
 
                             <form method="POST" action="{{ route('student.classrooms.enroll', $room['id']) }}" class="mt-auto pt-4">
                                 @csrf
-                                @if($isEnrollmentPeriod)
-                                    <button type="submit"
-                                            class="w-full rounded-2xl bg-green-600 px-4 py-2 text-sm font-bold text-white hover:bg-green-700 transition flex items-center justify-center gap-2">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Join Classroom
-                                    </button>
-                                @else
-                                    <button type="button" disabled
-                                            class="w-full rounded-2xl bg-slate-200 px-4 py-2 text-sm font-bold text-slate-400 cursor-not-allowed flex items-center justify-center gap-2">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                        Enrollment Closed
-                                    </button>
-                                @endif
+                                <button type="submit" class="w-full rounded-2xl bg-green-600 px-4 py-2 text-sm font-bold text-white hover:bg-green-700 transition flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    Join Classroom
+                                </button>
                             </form>
                         </article>
                     @endforeach
@@ -139,5 +150,26 @@
                 </div>
             @endif
         </section>
+    </div>
+
+    {{-- Join modal + floating button --}}
+    <button onclick="document.getElementById('joinModal').classList.remove('hidden'); setTimeout(()=>{document.getElementById('joinCode').focus()},120)" title="Join classroom" class="fixed right-6 bottom-6 z-50 rounded-full bg-green-600 w-14 h-14 text-white shadow-lg flex items-center justify-center hover:bg-green-700">+
+    </button>
+
+    <div id="joinModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl shadow-xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Join Classroom</h3>
+            <p class="text-xs text-slate-400 mb-4">Enter the Subject Code provided by your instructor.</p>
+            <form method="POST" action="{{ route('student.classrooms.join') }}">
+                @csrf
+                <div class="space-y-4">
+                    <input id="joinCode" name="code" placeholder="Subject Code" required maxlength="20" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 focus:outline-none">
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('joinModal').classList.add('hidden')" class="px-4 py-2 text-sm font-semibold text-slate-500">Cancel</button>
+                    <button type="submit" class="rounded-xl bg-green-600 px-5 py-2 text-sm font-bold text-white hover:bg-green-700 transition">Join</button>
+                </div>
+            </form>
+        </div>
     </div>
 @endsection

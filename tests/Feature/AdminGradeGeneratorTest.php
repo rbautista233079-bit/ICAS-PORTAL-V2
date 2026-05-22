@@ -1,6 +1,7 @@
 <?php
 
-use App\Models\StudentModuleRecord;
+use App\Models\Classroom;
+use App\Models\Grade;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -10,16 +11,31 @@ uses(RefreshDatabase::class);
 
 it('allows admins to download the grade generator csv', function () {
     $admin = User::factory()->create(['role' => 'admin']);
-    $student = User::factory()->create(['role' => 'student', 'name' => 'Aira Ramos', 'email' => 'aira@example.test']);
+    $faculty = User::factory()->create(['role' => 'faculty', 'name' => 'Dr. Maria Fernandez']);
+    $student = User::factory()->create([
+        'role' => 'student',
+        'name' => 'Aira Ramos',
+        'email' => 'aira@example.test',
+        'academic_level' => 'College',
+        'course' => 'BSIT',
+    ]);
 
-    StudentModuleRecord::query()->create([
-        'user_id' => $student->id,
-        'module_name' => 'Advanced Mathematics',
-        'module_code' => 'MATH301',
-        'instructor' => 'Dr. Maria Fernandez',
+    Classroom::create([
+        'faculty_user_id' => $faculty->id,
+        'name' => 'Advanced Mathematics',
+        'code' => 'MATH301',
         'schedule' => 'Mon, Wed, Fri 9:00 AM',
-        'grade_percent' => 91.5,
-        'documents_count' => 0,
+        'description' => 'Test',
+        'status' => 'active',
+        'academic_year' => '2024–2025',
+        'semester' => 'Second Semester',
+    ]);
+
+    Grade::create([
+        'student_id' => $student->id,
+        'subject_id' => 'MATH301',
+        'average' => 91.5,
+        'remarks' => 'Pass',
     ]);
 
     $response = actingAs($admin)->get(route('admin.grades.export'));
@@ -41,11 +57,13 @@ it('allows admins to download the grade generator csv', function () {
     expect($header)->toBe([
         'Student Name',
         'Student Email',
+        'Course/Strand',
+        'Level',
         'Module Name',
         'Module Code',
         'Instructor',
-        'Schedule',
-        'Grade Percent',
+        'Grade (%)',
+        'GPA Equivalent',
     ]);
 
     expect($firstDataRow)

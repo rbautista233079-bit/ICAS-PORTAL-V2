@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreFacultyAttendanceRecordRequest;
 use App\Http\Requests\UpdateFacultyAttendanceRecordRequest;
+use App\Models\AuditTrail;
 use App\Models\Classroom;
+use App\Models\ClassroomGradingCriteria;
 use App\Models\FacultyAttendanceRecord;
 use App\Models\Grade;
 use App\Models\StudentModuleRecord;
 use App\Models\User;
+use App\Services\SystemSettingsService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -42,31 +45,38 @@ class FacultyController extends Controller
 
     public function schedule(): View
     {
-        $schedule = [
-            'Mon' => [
-                ['time' => '7:00 AM – 8:30 AM',  'subject' => 'Advanced Mathematics', 'code' => 'MATH301', 'room' => 'Room 201', 'students' => 28],
-                ['time' => '9:00 AM – 10:30 AM', 'subject' => 'English Composition',  'code' => 'ENG101',  'room' => 'Room 105', 'students' => 22],
-            ],
-            'Tue' => [
-                ['time' => '10:00 AM – 11:30 AM', 'subject' => 'Physics I',    'code' => 'PHY201',  'room' => 'Lab 3',    'students' => 24],
-                ['time' => '1:00 PM – 2:30 PM',   'subject' => 'World History', 'code' => 'HIST201', 'room' => 'Room 310', 'students' => 30],
-            ],
-            'Wed' => [
-                ['time' => '7:00 AM – 8:30 AM',  'subject' => 'Advanced Mathematics', 'code' => 'MATH301', 'room' => 'Room 201', 'students' => 28],
-                ['time' => '9:00 AM – 10:30 AM', 'subject' => 'English Composition',  'code' => 'ENG101',  'room' => 'Room 105', 'students' => 22],
-            ],
-            'Thu' => [
-                ['time' => '10:00 AM – 11:30 AM', 'subject' => 'Physics I',    'code' => 'PHY201',  'room' => 'Lab 3',    'students' => 24],
-                ['time' => '1:00 PM – 2:30 PM',   'subject' => 'World History', 'code' => 'HIST201', 'room' => 'Room 310', 'students' => 30],
-            ],
-            'Fri' => [
-                ['time' => '7:00 AM – 8:30 AM', 'subject' => 'Advanced Mathematics', 'code' => 'MATH301', 'room' => 'Room 201', 'students' => 28],
-            ],
-            'Sat' => [],
-        ];
-        $totalStudents = 28 + 22 + 24 + 30;
+        /** @var User $faculty */
+        $faculty = Auth::user();
 
-        return view('faculty.schedule', compact('schedule', 'totalStudents'));
+        $days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        $schedule = [];
+        foreach ($days as $d) {
+            $schedule[$d] = [];
+        }
+
+        $classrooms = $faculty->classroomsAsFaculty()->where('status', 'active')->withCount('students')->get();
+
+        foreach ($classrooms as $c) {
+            foreach ($days as $d) {
+                if ($c->schedule && str_contains($c->schedule, $d)) {
+                    $schedule[$d][] = [
+                        'time' => $c->schedule,
+                        'subject' => $c->name,
+                        'code' => $c->code,
+                        'room' => null,
+                        'students' => $c->students_count ?? 0,
+                    ];
+                }
+            }
+        }
+
+        $totalStudents = $classrooms->sum('students_count');
+
+        // Fetch final exam start date from system settings
+        $settings = new SystemSettingsService;
+        $finalExamStartDate = $settings->get('final_exam_start');
+
+        return view('faculty.schedule', compact('schedule', 'totalStudents', 'finalExamStartDate'));
     }
 
     public function dashboard(): View
@@ -130,11 +140,21 @@ class FacultyController extends Controller
     {
         $tab = $request->query('tab') === 'grades' ? 'grades' : 'attendance';
         $filters = $this->resolveGradesFilters($request);
+        $gradeSearch = trim((string) $request->query('grade_search', ''));
+        $gradeSubjectFilter = trim((string) $request->query('grade_subject', ''));
         $activeFilters = collect($filters)
             ->filter(function (string $value): bool {
                 return $value !== '';
             })
             ->all();
+
+        /** @var User $faculty */
+        $faculty = Auth::user();
+        $facultyClassrooms = $faculty->classroomsAsFaculty()
+            ->where('status', 'active')
+            ->with('gradingCriteria')
+            ->orderBy('name')
+            ->get();
 
         $baseQuery = $this->queryAttendanceRecords($filters);
 
@@ -178,11 +198,13 @@ class FacultyController extends Controller
             ->pluck('student_class')
             ->all();
 
-        $gradeSubjects = $facultyClassrooms->pluck('code')->all();
+        $gradeSubjects = $facultyClassrooms
+            ->map(fn (Classroom $classroom): array => ['code' => $classroom->code, 'name' => $classroom->name])
+            ->all();
 
         // If no subject selected, default to the first classroom if available
-        if (!$gradeSubjectFilter && !empty($gradeSubjects)) {
-            $gradeSubjectFilter = $gradeSubjects[0];
+        if (! $gradeSubjectFilter && ! empty($gradeSubjects)) {
+            $gradeSubjectFilter = $gradeSubjects[0]['code'];
         }
 
         // Get criteria for selected subject
@@ -190,11 +212,10 @@ class FacultyController extends Controller
         $activeCriteria = $activeClassroom ? $activeClassroom->gradingCriteria : collect();
 
         $studentsWithGrades = collect();
-        if ($tab === 'grades') {
-            // Get students enrolled in this classroom or all students for now (simplification)
-            $studentsQuery = User::where('role', 'student');
+        if ($tab === 'grades' && $activeClassroom) {
+            $studentsQuery = $activeClassroom->students()->select('users.id', 'users.name');
             if ($gradeSearch) {
-                $studentsQuery->where('name', 'like', '%'.$gradeSearch.'%');
+                $studentsQuery->where('users.name', 'like', '%'.$gradeSearch.'%');
             }
             $students = $studentsQuery->get();
 
@@ -207,7 +228,7 @@ class FacultyController extends Controller
             foreach ($students as $student) {
                 $existingGrade = $existingGrades->get($student->id);
                 $componentScores = $existingGrade?->component_scores ?? [];
-                
+
                 $studentsWithGrades->push([
                     'student_id' => $student->id,
                     'student_name' => $student->name,
@@ -222,20 +243,16 @@ class FacultyController extends Controller
             }
         }
 
-        // Load classrooms with their grading criteria for the criteria config section
-        /** @var User $faculty */
-        $faculty = Auth::user();
-        $facultyClassrooms = $faculty->classroomsAsFaculty()
-            ->with('gradingCriteria')
-            ->orderBy('name')
-            ->get();
-
         return view('faculty.grades', compact('summary', 'records', 'filters', 'activeFilters', 'classOptions', 'tab', 'studentsWithGrades', 'gradeSubjects', 'gradeSubjectFilter', 'gradeSearch', 'facultyClassrooms', 'activeCriteria', 'activeClassroom'));
     }
 
     public function storeAttendanceRecord(StoreFacultyAttendanceRecordRequest $request): RedirectResponse
     {
         $data = $request->validated();
+
+        if (empty($data['subject_code']) && ! empty($data['student_class'])) {
+            $data['subject_code'] = $data['student_class'];
+        }
 
         $classroom = null;
         if (! empty($data['student_class'])) {
@@ -281,7 +298,7 @@ class FacultyController extends Controller
             // capture student snapshot data (course, academic_level) if mapped
             $studentCourse = null;
             $studentLevel = null;
-            
+
             $student = null;
             if (! empty($data['student_user_id'])) {
                 $student = User::find($data['student_user_id']);
@@ -295,7 +312,7 @@ class FacultyController extends Controller
                 $studentLevel = $student->academic_level;
             }
 
-            $settings = new \App\Services\SystemSettingsService();
+            $settings = new SystemSettingsService;
             FacultyAttendanceRecord::query()->create(array_merge([
                 'faculty_user_id' => Auth::id(),
                 'course_strand' => $studentCourse,
@@ -339,12 +356,12 @@ class FacultyController extends Controller
                 return;
             }
 
-            fputcsv($output, ['Student Name', 'Class/Subject', 'Course/Strand', 'Academic Level', 'Date', 'Status']);
+            fputcsv($output, ['Student Name', 'Subject', 'Course/Strand', 'Academic Level', 'Date', 'Status']);
 
             foreach ($records as $record) {
                 fputcsv($output, [
                     $record->student_name,
-                    $record->student_class,
+                    $record->subject_code ?? $record->student_class,
                     $record->course_strand,
                     $record->academic_level,
                     $record->attendance_date?->format('Y-m-d') ?? '',
@@ -441,7 +458,8 @@ class FacultyController extends Controller
      */
     private function queryAttendanceRecords(array $filters): Builder
     {
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
+
         return FacultyAttendanceRecord::query()
             ->where('faculty_user_id', Auth::id())
             ->where('academic_year', $settings->get('academic_year'))
@@ -468,7 +486,7 @@ class FacultyController extends Controller
 
         $courseFilter = trim((string) $request->query('course', ''));
 
-        $settings = new \App\Services\SystemSettingsService();
+        $settings = new SystemSettingsService;
         $enrollments = StudentModuleRecord::query()
             ->where('academic_year', $settings->get('academic_year'))
             ->where('semester', $settings->get('current_semester'))
@@ -510,28 +528,6 @@ class FacultyController extends Controller
             ->all();
 
         return view('faculty.enrollments', compact('enrollments', 'summary', 'tab', 'courseFilter', 'courseOptions'));
-    }
-
-    public function approveEnrollment(StudentModuleRecord $moduleRecord): RedirectResponse
-    {
-        $moduleRecord->update(['enrollment_status' => 'faculty_approved']);
-
-        return redirect()
-            ->route('faculty.enrollments', ['tab' => 'pending'])
-            ->with('status', 'Enrollment approved for '.$moduleRecord->user->name.' in '.$moduleRecord->module_name.'. Waiting for Admin verification.');
-    }
-
-    public function assignSection(Request $request, StudentModuleRecord $moduleRecord): RedirectResponse
-    {
-        $validated = $request->validate([
-            'section' => ['required', 'string', 'max:50'],
-        ]);
-
-        $moduleRecord->update(['section' => $validated['section']]);
-
-        return redirect()
-            ->route('faculty.enrollments', ['tab' => $request->query('tab', 'pending')])
-            ->with('status', 'Section assigned: '.$validated['section'].' for '.$moduleRecord->user->name.'.');
     }
 
     private function extractInitials(string $name): string
@@ -616,7 +612,7 @@ class FacultyController extends Controller
     /**
      * Delete a single grading criterion.
      */
-    public function deleteGradingCriteria(Classroom $classroom, \App\Models\ClassroomGradingCriteria $criteria): RedirectResponse
+    public function deleteGradingCriteria(Classroom $classroom, ClassroomGradingCriteria $criteria): RedirectResponse
     {
         $this->authorizeClassroom($classroom);
 
@@ -662,9 +658,17 @@ class FacultyController extends Controller
             'force_password_reset' => false,
         ]);
 
-        \App\Models\AuditTrail::log('Update', 'Security', 'Faculty member updated their password.');
+        $request->session()->forget(['force_password_change', 'force_password_change_message']);
 
-        return back()->with('status', 'Password updated successfully.');
+        AuditTrail::log('Update', 'Security', 'Faculty member updated their password.');
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()
+            ->route('login')
+            ->with('status', 'Password updated successfully. Please log in with your new credentials.');
     }
 
     private function authorizeClassroom(Classroom $classroom): void

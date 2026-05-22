@@ -85,7 +85,7 @@
                                        {{ old('status', $classroom?->status ?? 'active') === 'active' ? 'checked' : '' }}
                                        class="accent-green-600 w-4 h-4">
                                 <span class="text-sm font-medium text-slate-700">Active</span>
-                                <span class="text-xs text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">Students can enroll</span>
+                                <span class="text-xs text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">Students can join via code</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" name="status" value="inactive"

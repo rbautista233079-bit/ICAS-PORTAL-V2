@@ -193,6 +193,20 @@
                     exportToggle.addEventListener('click', () => exportMenu.classList.toggle('hidden'));
                 }
             })();
+                // Poll classroom student counts every 5 seconds
+                setInterval(async function(){
+                    try {
+                        const res = await fetch('{{ route('admin.classrooms.list.json') }}');
+                        const list = await res.json();
+                        list.forEach(function(c){
+                            const row = document.querySelector('tr[data-id="'+c.id+'"]');
+                            if (row) {
+                                const badge = row.querySelector('.inline-flex.h-7');
+                                if (badge) badge.textContent = c.student_count;
+                            }
+                        });
+                    } catch (e) { console.error(e); }
+                }, 5000);
         </script>
     </div>
 @endsection

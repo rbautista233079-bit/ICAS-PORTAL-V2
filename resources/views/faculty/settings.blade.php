@@ -36,8 +36,13 @@
                 <div class="grid gap-6 md:grid-cols-2">
                     <div class="space-y-2">
                         <label for="current_password" class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Current Password</label>
-                        <input type="password" name="current_password" id="current_password" required 
-                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:border-green-500 focus:outline-none transition-all">
+                        <div class="relative">
+                            <input type="password" name="current_password" id="faculty-current-password" required 
+                                   class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-700 focus:border-green-500 focus:outline-none transition-all">
+                            <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="faculty-current-password" aria-label="Show password">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            </button>
+                        </div>
                         @error('current_password')
                             <p class="text-xs text-rose-500 font-medium">{{ $message }}</p>
                         @enderror
@@ -47,8 +52,13 @@
                 <div class="grid gap-6 md:grid-cols-2">
                     <div class="space-y-2">
                         <label for="new_password" class="block text-xs font-bold text-slate-400 uppercase tracking-widest">New Password</label>
-                        <input type="password" name="new_password" id="new_password" required 
-                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:border-green-500 focus:outline-none transition-all">
+                        <div class="relative">
+                            <input type="password" name="new_password" id="faculty-new-password" required 
+                                   class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-700 focus:border-green-500 focus:outline-none transition-all">
+                            <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="faculty-new-password" aria-label="Show password">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            </button>
+                        </div>
                         @error('new_password')
                             <p class="text-xs text-rose-500 font-medium">{{ $message }}</p>
                         @enderror
@@ -56,8 +66,13 @@
 
                     <div class="space-y-2">
                         <label for="new_password_confirmation" class="block text-xs font-bold text-slate-400 uppercase tracking-widest">Confirm New Password</label>
-                        <input type="password" name="new_password_confirmation" id="new_password_confirmation" required 
-                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:border-green-500 focus:outline-none transition-all">
+                        <div class="relative">
+                            <input type="password" name="new_password_confirmation" id="faculty-confirm-password" required 
+                                   class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-700 focus:border-green-500 focus:outline-none transition-all">
+                            <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="faculty-confirm-password" aria-label="Show password">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -121,4 +136,24 @@
         </div>
     </section>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-password-toggle]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const targetId = btn.getAttribute('data-password-toggle');
+                const input = document.getElementById(targetId);
+                if (!input) {
+                    return;
+                }
+
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+                btn.innerHTML = show
+                    ? '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.065 10.065 0 012.132-3.444m2.923-2.108A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.036 10.036 0 01-4.043 5.188M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 9L3 3"></path></svg>'
+                    : '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>';
+            });
+        });
+    });
+</script>
 @endsection

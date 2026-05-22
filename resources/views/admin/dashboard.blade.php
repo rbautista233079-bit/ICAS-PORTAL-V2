@@ -11,9 +11,9 @@
                 <h1 class="text-3xl font-bold mb-1">Welcome back, {{ auth()->user()->name }}! 👋</h1>
                 <p class="text-green-50 text-sm">Here's a live summary of your school's performance and system status.</p>
             </div>
-            <a href="{{ route('admin.enrollments') }}" class="inline-flex items-center gap-2 rounded-2xl bg-white/20 hover:bg-white/30 px-5 py-2.5 text-sm font-semibold text-white transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                Manage Enrollment per Subject →
+            <a href="{{ route('admin.classrooms') }}" class="inline-flex items-center gap-2 rounded-2xl bg-white/20 hover:bg-white/30 px-5 py-2.5 text-sm font-semibold text-white transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"></path></svg>
+                Manage Classrooms →
             </a>
         </div>
 

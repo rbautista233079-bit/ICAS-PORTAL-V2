@@ -50,13 +50,13 @@ class AnnouncementController extends Controller
         ]);
 
         try {
-            $attachmentBlob = null;
+            $attachmentPath = null;
             $attachmentMime = null;
             $attachmentFilename = null;
 
             if ($request->hasFile('attachment')) {
                 $file = $request->file('attachment');
-                $attachmentBlob = file_get_contents($file->getRealPath());
+                $attachmentPath = $file->store('announcements', 'local');
                 $attachmentMime = $file->getMimeType();
                 $attachmentFilename = $file->getClientOriginalName();
             }
@@ -65,10 +65,9 @@ class AnnouncementController extends Controller
                 'title' => $validated['title'],
                 'content' => $validated['content'],
                 'audience' => 'faculty',
-                'attachment_blob' => $attachmentBlob,
                 'attachment_mime' => $attachmentMime,
                 'attachment_filename' => $attachmentFilename,
-                'attachment_path' => $attachmentBlob ? 'stored_in_db' : null,
+                'attachment_path' => $attachmentPath,
                 'created_by' => auth()->id(),
             ]);
 
@@ -121,13 +120,13 @@ class AnnouncementController extends Controller
         $validated = $request->validated();
 
         try {
-            $attachmentBlob = null;
+            $attachmentPath = null;
             $attachmentMime = null;
             $attachmentFilename = null;
 
             if ($request->hasFile('attachment')) {
                 $file = $request->file('attachment');
-                $attachmentBlob = file_get_contents($file->getRealPath());
+                $attachmentPath = $file->store('announcements', 'local');
                 $attachmentMime = $file->getMimeType();
                 $attachmentFilename = $file->getClientOriginalName();
             }
@@ -136,10 +135,9 @@ class AnnouncementController extends Controller
                 'title' => $validated['title'],
                 'content' => $validated['content'],
                 'audience' => $validated['audience'],
-                'attachment_blob' => $attachmentBlob,
                 'attachment_mime' => $attachmentMime,
                 'attachment_filename' => $attachmentFilename,
-                'attachment_path' => $attachmentBlob ? 'stored_in_db' : null,
+                'attachment_path' => $attachmentPath,
                 'created_by' => auth()->id(),
             ]);
 
@@ -174,18 +172,22 @@ class AnnouncementController extends Controller
 
         try {
             if ($request->boolean('remove_attachment')) {
-                $announcement->attachment_blob = null;
+                if ($announcement->attachment_path) {
+                    Storage::disk('local')->delete($announcement->attachment_path);
+                }
                 $announcement->attachment_mime = null;
                 $announcement->attachment_filename = null;
                 $announcement->attachment_path = null;
             }
 
             if ($request->hasFile('attachment')) {
+                if ($announcement->attachment_path) {
+                    Storage::disk('local')->delete($announcement->attachment_path);
+                }
                 $file = $request->file('attachment');
-                $announcement->attachment_blob = file_get_contents($file->getRealPath());
+                $announcement->attachment_path = $file->store('announcements', 'local');
                 $announcement->attachment_mime = $file->getMimeType();
                 $announcement->attachment_filename = $file->getClientOriginalName();
-                $announcement->attachment_path = 'stored_in_db';
             }
 
             $announcement->title = $validated['title'];
@@ -217,7 +219,9 @@ class AnnouncementController extends Controller
     public function destroy(Request $request, Announcement $announcement): JsonResponse|RedirectResponse
     {
         try {
-            // No physical file to delete
+            if ($announcement->attachment_path) {
+                Storage::disk('local')->delete($announcement->attachment_path);
+            }
 
             $announcement->delete();
         } catch (Throwable $exception) {

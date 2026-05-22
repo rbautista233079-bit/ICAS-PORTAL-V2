@@ -54,43 +54,40 @@
             @foreach($records as $record)
                 @php
                     $gradingService = new \App\Services\GradingService();
-                    $gpa = $gradingService->toGpa($record->grade_percent) ?? 'N/A';
-                    
-                    // Try to find dynamic components from the Grade model if linked
-                    $gradeModel = \App\Models\Grade::where('student_id', $record->user_id)
-                        ->where('subject_id', $record->module_code)
-                        ->first();
-                    
+                    $gpa = $gradingService->toGpa((float) $record->average) ?? 'N/A';
+
+                    $classroom = $classroomMap[$record->subject_id] ?? null;
+
                     $componentsStr = 'Standard Calculation';
-                    if ($gradeModel && $gradeModel->component_scores) {
+                    if ($record->component_scores) {
                         $compList = [];
-                        foreach ($gradeModel->component_scores as $key => $val) {
-                            $compList[] = ucfirst(str_replace('_', ' ', $key)) . ": " . $val . "%";
+                        foreach ($record->component_scores as $key => $val) {
+                            $compList[] = ucfirst(str_replace('_', ' ', $key)) . ': ' . $val . '%';
                         }
                         $componentsStr = implode(', ', $compList);
                     }
                 @endphp
                 <tr>
                     <td>
-                        <strong>{{ $record->user->name ?? 'Unknown' }}</strong><br>
-                        <span style="font-size: 9px; color: #666;">{{ $record->user->email ?? '' }}</span>
+                        <strong>{{ $record->student->name ?? 'Unknown' }}</strong><br>
+                        <span style="font-size: 9px; color: #666;">{{ $record->student->email ?? '' }}</span>
                     </td>
                     <td>
-                        {{ str_contains($record->user->academic_level ?? '', 'Senior High School') ? $record->user->strand : $record->user->course }}<br>
-                        <span style="font-size: 9px; color: #666;">{{ $record->user->academic_level }}</span>
+                        {{ str_contains($record->student->academic_level ?? '', 'Senior High School') ? $record->student->strand : $record->student->course }}<br>
+                        <span style="font-size: 9px; color: #666;">{{ $record->student->academic_level }}</span>
                     </td>
                     <td>
-                        {{ $record->module_name }}<br>
-                        <span style="font-size: 9px; color: #666;">Code: {{ $record->module_code }}</span>
+                        {{ $classroom?->name ?? $record->subject_id }}<br>
+                        <span style="font-size: 9px; color: #666;">Code: {{ $record->subject_id }}</span>
                     </td>
                     <td class="components">
                         {{ $componentsStr }}
                     </td>
-                    <td><strong>{{ number_format($record->grade_percent, 2) }}%</strong></td>
+                    <td><strong>{{ number_format((float) $record->average, 2) }}%</strong></td>
                     <td class="gpa">{{ $gpa }}</td>
                     <td>
-                        @if($record->grade_verified)
-                            <span class="status-verified">Verified</span>
+                        @if($record->average !== null)
+                            <span class="status-verified">Recorded</span>
                         @else
                             <span class="status-pending">Pending</span>
                         @endif

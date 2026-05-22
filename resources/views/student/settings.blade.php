@@ -2,7 +2,15 @@
 @section('title', 'Settings')
 @section('pageDescription', 'Manage your account preferences, password, and notification settings.')
 @section('content')
-<div class="space-y-6" x-data="{ tab: 'account' }">
+@php
+    $allowedTabs = ['account', 'password', 'notifications', 'privacy'];
+    $requestedTab = (string) request()->query('tab', '');
+    $tab = in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'account';
+    $forcePasswordChange = session('force_password_change', false);
+    $activeTab = $forcePasswordChange ? 'password' : $tab;
+@endphp
+<div class="space-y-6" x-data="{ tab: '{{ $activeTab }}' }">
+    @if (! $forcePasswordChange)
     {{-- Tab Nav --}}
     <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-2 flex gap-2 flex-wrap">
         @foreach(['account' => 'Account', 'password' => 'Password', 'notifications' => 'Notifications', 'privacy' => 'Privacy'] as $key => $label)
@@ -44,10 +52,17 @@
         </section>
     </div>
 
+    @endif
+
     {{-- Password Tab --}}
     <div x-show="tab === 'password'" x-cloak>
         <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
             <h3 class="text-lg font-bold text-slate-900 mb-5">Change Password</h3>
+            @if($forcePasswordChange)
+                <div class="mb-6 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm font-semibold">
+                    {{ session('force_password_change_message', 'For your security, please change your password before proceeding.') }}
+                </div>
+            @endif
             @if(session('status'))
                 <div class="mb-6 rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex items-center gap-3 text-emerald-700 text-sm font-medium">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -59,20 +74,35 @@
                 @csrf
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Current Password</label>
-                    <input type="password" name="current_password" required
-                           class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent @error('current_password') border-rose-500 @enderror" placeholder="••••••••">
+                    <div class="relative">
+                        <input id="student-current-password" type="password" name="current_password" required
+                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent @error('current_password') border-rose-500 @enderror" placeholder="••••••••">
+                        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="student-current-password" aria-label="Show password">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                    </div>
                     @error('current_password') <p class="mt-1 text-xs text-rose-500 font-medium">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">New Password</label>
-                    <input type="password" name="new_password" required
-                           class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent @error('new_password') border-rose-500 @enderror" placeholder="••••••••">
+                    <div class="relative">
+                        <input id="student-new-password" type="password" name="new_password" required
+                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent @error('new_password') border-rose-500 @enderror" placeholder="••••••••">
+                        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="student-new-password" aria-label="Show password">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                    </div>
                     @error('new_password') <p class="mt-1 text-xs text-rose-500 font-medium">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Confirm New Password</label>
-                    <input type="password" name="new_password_confirmation" required
-                           class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent" placeholder="••••••••">
+                    <div class="relative">
+                        <input id="student-confirm-password" type="password" name="new_password_confirmation" required
+                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent" placeholder="••••••••">
+                        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="student-confirm-password" aria-label="Show password">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600">
@@ -88,6 +118,7 @@
         </section>
     </div>
 
+    @if (! $forcePasswordChange)
     {{-- Notifications Tab --}}
     <div x-show="tab === 'notifications'" x-cloak>
         <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
@@ -140,5 +171,26 @@
             </div>
         </section>
     </div>
+    @endif
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-password-toggle]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const targetId = btn.getAttribute('data-password-toggle');
+                const input = document.getElementById(targetId);
+                if (!input) {
+                    return;
+                }
+
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+                btn.innerHTML = show
+                    ? '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.065 10.065 0 012.132-3.444m2.923-2.108A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.036 10.036 0 01-4.043 5.188M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 9L3 3"></path></svg>'
+                    : '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>';
+            });
+        });
+    });
+</script>
 @endsection

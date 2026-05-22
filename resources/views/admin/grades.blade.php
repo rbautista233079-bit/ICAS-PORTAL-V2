@@ -164,36 +164,30 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($allGrades as $grade)
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-5 py-3.5 font-semibold text-slate-900">{{ $grade->user->name ?? 'Unknown' }}</td>
+                        @php $classroom = $classroomMap[$grade->subject_id] ?? null; @endphp
+                        <td class="px-5 py-3.5 font-semibold text-slate-900">{{ $grade->student->name ?? 'Unknown' }}</td>
                         <td class="px-5 py-3.5 text-slate-600 font-medium">
-                            @if(str_contains($grade->user->academic_level ?? '', 'Senior High School'))
+                            @if(str_contains($grade->student->academic_level ?? '', 'Senior High School'))
                                 <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] uppercase font-bold mr-1">Strand</span>
-                                {{ $grade->user->strand ?? 'N/A' }}
+                                {{ $grade->student->strand ?? 'N/A' }}
                             @else
                                 <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] uppercase font-bold mr-1">Course</span>
-                                {{ $grade->user->course ?? 'N/A' }}
+                                {{ $grade->student->course ?? 'N/A' }}
                             @endif
                         </td>
-                        <td class="px-5 py-3.5 text-slate-400">{{ $grade->user->academic_level ?? 'N/A' }}</td>
-                        <td class="px-5 py-3.5 text-slate-700">{{ $grade->module_name }} <span class="text-xs text-slate-400">({{ $grade->module_code }})</span></td>
-                        <td class="px-5 py-3.5"><span class="font-bold text-slate-900">{{ $grade->grade_percent }}%</span></td>
+                        <td class="px-5 py-3.5 text-slate-400">{{ $grade->student->academic_level ?? 'N/A' }}</td>
+                        <td class="px-5 py-3.5 text-slate-700">{{ $classroom?->name ?? $grade->subject_id }} <span class="text-xs text-slate-400">({{ $grade->subject_id }})</span></td>
+                        <td class="px-5 py-3.5"><span class="font-bold text-slate-900">{{ number_format((float) $grade->average, 2) }}%</span></td>
                         <td class="px-5 py-3.5">
-                            @if($grade->grade_verified)
-                                <span class="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">Verified</span>
+                            @if($grade->average !== null)
+                                <span class="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">Recorded</span>
                             @else
                                 <span class="bg-amber-100 text-amber-700 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">Pending</span>
                             @endif
                         </td>
                         <td class="px-5 py-3.5 text-right">
                             <div class="inline-flex items-center gap-2">
-                                @if(!$grade->grade_verified)
-                                <form action="{{ route('admin.grades.verify', $grade->id) }}" method="POST">
-                                    @csrf
-                                    @method('PATCH')
-                                    <button type="submit" class="text-xs font-semibold bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-xl hover:bg-emerald-200 transition">Verify</button>
-                                </form>
-                                @endif
-                                <button type="button" onclick="openEditModal({{ $grade->id }}, {{ $grade->grade_percent }})" class="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl hover:bg-slate-200 transition">Edit</button>
+                                <button type="button" onclick="openEditModal({{ $grade->id }}, {{ $grade->average ?? 0 }})" class="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl hover:bg-slate-200 transition">Edit</button>
                             </div>
                         </td>
                     </tr>

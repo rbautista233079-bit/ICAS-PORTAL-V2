@@ -2,7 +2,15 @@
 @section('title', 'System Settings')
 @section('pageDescription', 'Configure school information, academic term, and platform settings.')
 @section('content')
-<div class="space-y-6" x-data="{ tab: 'general' }">
+@php
+    $allowedTabs = ['general', 'academic', 'grading', 'appearance', 'password'];
+    $requestedTab = (string) request()->query('tab', '');
+    $tab = in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'general';
+    $forcePasswordChange = session('force_password_change', false);
+    $activeTab = $forcePasswordChange ? 'password' : $tab;
+@endphp
+<div class="space-y-6" x-data="{ tab: '{{ $activeTab }}' }">
+    @if (! $forcePasswordChange)
     <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-2 flex gap-2 flex-wrap">
         @foreach(['general'=>'General','academic'=>'Academic Term','grading'=>'Grading','appearance'=>'Appearance','password'=>'Password'] as $k=>$l)
             <button @click="tab='{{ $k }}'" :class="tab==='{{ $k }}'?'bg-green-600 text-white shadow-sm':'text-slate-600 hover:bg-slate-100'" class="rounded-2xl px-5 py-2.5 text-sm font-semibold transition">{{ $l }}</button>
@@ -57,14 +65,6 @@
                             <option value="Second Semester" @selected($schoolSettings['semester']==='Second Semester')>Second Semester</option>
                             <option value="Third Semester" @selected($schoolSettings['semester']==='Third Semester')>Third Semester</option>
                         </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Enrollment Start</label>
-                        <input name="enrollment_start" type="date" value="{{ $schoolSettings['enrollment_start'] }}" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Enrollment End</label>
-                        <input name="enrollment_end" type="date" value="{{ $schoolSettings['enrollment_end'] }}" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Final Exam Start Date</label>
@@ -215,11 +215,19 @@
         </section>
     </div>
 
+    @endif
+
     {{-- Password Management --}}
     <div x-show="tab==='password'" x-cloak>
         <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
             <h3 class="text-lg font-bold text-slate-900 mb-1">Password Management</h3>
             <p class="text-sm text-slate-500 mb-6">Update your administrator credentials. A secure password is required to maintain system integrity.</p>
+
+            @if($forcePasswordChange)
+                <div class="mb-6 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm font-semibold">
+                    {{ session('force_password_change_message', 'For your security, please change your password before proceeding.') }}
+                </div>
+            @endif
 
             @if(session('status'))
                 <div class="mb-6 rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex items-center gap-3 text-emerald-700 text-sm font-medium">
@@ -234,8 +242,13 @@
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Current Password</label>
-                    <input name="current_password" type="password" required
-                           class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 @error('current_password') border-rose-500 @enderror">
+                    <div class="relative">
+                        <input id="admin-current-password" name="current_password" type="password" required
+                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 @error('current_password') border-rose-500 @enderror">
+                        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="admin-current-password" aria-label="Show password">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                    </div>
                     @error('current_password')
                         <p class="mt-1 text-xs text-rose-500 font-medium">{{ $message }}</p>
                     @enderror
@@ -244,8 +257,13 @@
 
                 <div class="pt-2 border-t border-slate-100">
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">New Password</label>
-                    <input name="password" type="password" required
-                           class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 @error('password') border-rose-500 @enderror">
+                    <div class="relative">
+                        <input id="admin-new-password" name="password" type="password" required
+                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 @error('password') border-rose-500 @enderror">
+                        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="admin-new-password" aria-label="Show password">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                    </div>
                     @error('password')
                         <p class="mt-1 text-xs text-rose-500 font-medium">{{ $message }}</p>
                     @enderror
@@ -253,8 +271,13 @@
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Confirm New Password</label>
-                    <input name="password_confirmation" type="password" required
-                           class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
+                    <div class="relative">
+                        <input id="admin-confirm-password" name="password_confirmation" type="password" required
+                               class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
+                        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" data-password-toggle="admin-confirm-password" aria-label="Show password">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="pt-4 flex items-center gap-4">
@@ -268,4 +291,24 @@
         </section>
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-password-toggle]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const targetId = btn.getAttribute('data-password-toggle');
+                const input = document.getElementById(targetId);
+                if (!input) {
+                    return;
+                }
+
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+                btn.innerHTML = show
+                    ? '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.065 10.065 0 012.132-3.444m2.923-2.108A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.036 10.036 0 01-4.043 5.188M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 9L3 3"></path></svg>'
+                    : '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>';
+            });
+        });
+    });
+</script>
 @endsection

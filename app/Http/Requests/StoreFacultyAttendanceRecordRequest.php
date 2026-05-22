@@ -39,7 +39,7 @@ class StoreFacultyAttendanceRecordRequest extends FormRequest
     {
         return [
             'student_name' => ['required', 'string', 'max:255'],
-            'student_class' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'student_class' => ['required', 'string', 'max:50'],
             'student_user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
             'subject_code' => ['sometimes', 'nullable', 'string', 'max:50'],
             'attendance_date' => ['required', 'date'],

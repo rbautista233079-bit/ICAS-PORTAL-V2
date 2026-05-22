@@ -265,7 +265,7 @@ function subjectPage(){
             if(this.currentTopicIndex === null) return;
             const url = @json(route('faculty.materials.store'));
             const csrf = @json(csrf_token());
-            const storageBase = @json(asset('storage'));
+            const fileRouteTemplate = @json(route('file.show', ['type' => 'material_file', 'id' => '__ID__']));
 
             const fd = new FormData();
             fd.append('subject_slug', @json($subject['slug']));
@@ -295,7 +295,7 @@ function subjectPage(){
                     body: m.body || (m.original_filename ? m.original_filename : ''),
                     date: formattedDate,
                     icon: m.icon || (m.type === 'video' ? 'video' : 'doc'),
-                    file_url: m.file_path ? (storageBase + '/' + m.file_path) : null,
+                    file_url: m.file_path ? fileRouteTemplate.replace('__ID__', m.id) : null,
                 };
 
                 this.topics[this.currentTopicIndex].posts.unshift(newPost);

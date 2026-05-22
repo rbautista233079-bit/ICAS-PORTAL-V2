@@ -74,7 +74,7 @@
                     
                     <div class="p-6 relative flex flex-col items-center text-center flex-1">
                         @if($faculty->profile_photo)
-                            <img src="{{ asset('storage/' . $faculty->profile_photo) }}" alt="Avatar" class="h-20 w-20 rounded-full object-cover border-4 border-white shadow-sm mb-4">
+                            <img src="{{ route('file.show', ['type' => 'profile_image', 'id' => $faculty->id]) }}" alt="Avatar" class="h-20 w-20 rounded-full object-cover border-4 border-white shadow-sm mb-4">
                         @else
                             @php
                                 $initials = collect(explode(' ', trim($faculty->name)))->map(fn($s) => strtoupper(substr($s, 0, 1)))->take(2)->join('');

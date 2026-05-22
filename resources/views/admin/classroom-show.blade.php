@@ -86,6 +86,22 @@
                     }
                 });
             }
+
+            // Poll for updated student list every 5 seconds (only if no active search)
+            const searchInput = document.querySelector('input[name="q"]');
+            setInterval(async function(){
+                if (searchInput && searchInput.value.trim() === '') {
+                    try {
+                        const res = await fetch('{{ route('admin.classrooms.students.json', $classroom->id) }}');
+                        const data = await res.json();
+                        // Update the total count
+                        const totalEl = document.querySelector('.text-sm.text-slate-600');
+                        if (totalEl) {
+                            totalEl.innerHTML = 'Total students: <span class="font-bold">' + data.total + '</span>';
+                        }
+                    } catch (e) { console.error(e); }
+                }
+            }, 5000);
         });
     </script>
 @endsection

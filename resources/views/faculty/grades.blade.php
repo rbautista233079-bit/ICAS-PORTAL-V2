@@ -254,7 +254,9 @@
                         <input type="text" name="grade_search" value="{{ $gradeSearch }}" placeholder="Search students..." class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none" />
                         <select name="grade_subject" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
                             @foreach($gradeSubjects as $subjectOption)
-                                <option value="{{ $subjectOption }}" @selected($gradeSubjectFilter === $subjectOption)>{{ $subjectOption }}</option>
+                                <option value="{{ $subjectOption['code'] }}" @selected($gradeSubjectFilter === $subjectOption['code'])>
+                                    {{ $subjectOption['name'] }} ({{ $subjectOption['code'] }})
+                                </option>
                             @endforeach
                         </select>
                         <button type="submit" class="rounded-3xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition">Filter</button>

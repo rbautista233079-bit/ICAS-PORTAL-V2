@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditTrail;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
-use App\Models\AuditTrail;
 
 class AuthController extends Controller
 {
@@ -150,7 +150,7 @@ class AuthController extends Controller
             'role' => ['required', 'in:student,faculty,admin'],
         ]);
 
-        $throttleKey = Str::lower($request->input('email')) . '|' . $request->ip();
+        $throttleKey = Str::lower($request->input('email')).'|'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
             $seconds = RateLimiter::availableIn($throttleKey);
@@ -187,9 +187,9 @@ class AuthController extends Controller
             if ($user->role === 'student' && $user->status === 'pending') {
                 Auth::logout();
                 $hasRequiredProof = false;
-                if ($user->enrollment_type === 'New Student' && $user->receipt_proof_blob) {
+                     if ($user->enrollment_type === 'New Student' && $user->receipt_proof) {
                     $hasRequiredProof = true;
-                } elseif ($user->enrollment_type === 'Old Student' && $user->student_id_proof_blob) {
+                     } elseif ($user->enrollment_type === 'Old Student' && $user->student_id_proof) {
                     $hasRequiredProof = true;
                 }
 
@@ -210,12 +210,22 @@ class AuthController extends Controller
             RateLimiter::clear($throttleKey);
             $request->session()->regenerate();
 
-            AuditTrail::log('Login', 'Auth', 'User logged in as ' . $selectedRole);
+            AuditTrail::log('Login', 'Auth', 'User logged in as '.$selectedRole);
 
             // Redirection Enforcement for Password Reset
             if ($user->registration_source === 'csv_import' && $user->force_password_reset) {
-                return redirect()->route($user->role . '.settings')
-                    ->with('status', 'For your security, please change your password before proceeding.');
+                $message = 'For your security, please change your password before proceeding.';
+                $request->session()->put('force_password_change', true);
+                $request->session()->put('force_password_change_message', $message);
+
+                $targetRoute = $user->role.'.settings';
+                $targetParams = [];
+                if (in_array($user->role, ['admin', 'student'], true)) {
+                    $targetParams = ['tab' => 'password'];
+                }
+
+                return redirect()->route($targetRoute, $targetParams)
+                    ->with('status', $message);
             }
 
             return match ($selectedRole) {
@@ -254,7 +264,7 @@ class AuthController extends Controller
                 'regex:/[a-z]/',
                 'regex:/[A-Z]/',
                 'regex:/[0-9]/',
-                'regex:/[^A-Za-z0-9]/'
+                'regex:/[^A-Za-z0-9]/',
             ],
         ], [
             'password.required' => 'Password is required.',
@@ -273,9 +283,15 @@ class AuthController extends Controller
             'force_password_reset' => false,
         ]);
 
+        $request->session()->forget(['force_password_change', 'force_password_change_message']);
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect()
-            ->route(Auth::user()->role.'.dashboard')
-            ->with('status', 'Password updated successfully. You can now access the full system.');
+            ->route('login')
+            ->with('status', 'Password updated successfully. Please log in with your new credentials.');
     }
 
     public function verifyUpload(Request $request): RedirectResponse
@@ -297,9 +313,11 @@ class AuthController extends Controller
 
             if ($request->hasFile('receipt_proof')) {
                 $file = $request->file('receipt_proof');
-                $user->receipt_proof_blob = file_get_contents($file->getRealPath());
-                $user->receipt_proof_mime = $file->getMimeType();
-                $user->receipt_proof = 'stored_in_db'; 
+                    if ($user->receipt_proof) {
+                        Storage::disk('local')->delete($user->receipt_proof);
+                    }
+                    $user->receipt_proof = $file->store('verifications/receipt-proofs', 'local');
+                    $user->receipt_proof_mime = $file->getMimeType();
             }
         } elseif ($user->enrollment_type === 'Old Student') {
             $request->validate([
@@ -308,9 +326,11 @@ class AuthController extends Controller
 
             if ($request->hasFile('student_id_proof')) {
                 $file = $request->file('student_id_proof');
-                $user->student_id_proof_blob = file_get_contents($file->getRealPath());
-                $user->student_id_proof_mime = $file->getMimeType();
-                $user->student_id_proof = 'stored_in_db';
+                    if ($user->student_id_proof) {
+                        Storage::disk('local')->delete($user->student_id_proof);
+                    }
+                    $user->student_id_proof = $file->store('verifications/student-ids', 'local');
+                    $user->student_id_proof_mime = $file->getMimeType();
             }
         } else {
             return redirect()->route('login')->withErrors(['email' => 'Invalid enrollment type.']);

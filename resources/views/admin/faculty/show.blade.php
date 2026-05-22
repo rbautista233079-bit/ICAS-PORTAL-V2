@@ -21,7 +21,7 @@
             <div class="lg:col-span-1 space-y-6">
                 <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col items-center text-center">
                     @if($user->profile_photo)
-                        <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="Avatar" class="h-28 w-28 rounded-full object-cover border-4 border-slate-50 shadow-md mb-4">
+                        <img src="{{ route('file.show', ['type' => 'profile_image', 'id' => $user->id]) }}" alt="Avatar" class="h-28 w-28 rounded-full object-cover border-4 border-slate-50 shadow-md mb-4">
                     @else
                         @php
                             $initials = collect(explode(' ', trim($user->name)))->map(fn($s) => strtoupper(substr($s, 0, 1)))->take(2)->join('');

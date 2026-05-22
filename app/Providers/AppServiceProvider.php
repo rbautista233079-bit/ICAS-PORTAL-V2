@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Announcement;
+use App\Services\SystemSettingsService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
@@ -26,7 +27,7 @@ class AppServiceProvider extends ServiceProvider
         // Global Timezone Setting — wrapped in try-catch for Railway cold starts
         try {
             if (Schema::hasTable('system_settings')) {
-                $settings = new \App\Services\SystemSettingsService();
+                $settings = new SystemSettingsService;
                 $tz = $settings->get('timezone');
                 if ($tz) {
                     config(['app.timezone' => $tz]);
@@ -45,20 +46,12 @@ class AppServiceProvider extends ServiceProvider
             $newAnnouncementsCount = 0;
 
             try {
-                $settings = new \App\Services\SystemSettingsService();
+                $settings = new SystemSettingsService;
                 $activeAY = $settings->get('academic_year', '2024–2025');
                 $activeSem = $settings->get('current_semester', 'Second Semester');
 
-                // Enrollment Dates for Student Portal logic
-                $enrollmentStart = $settings->get('enrollment_start');
-                $enrollmentEnd = $settings->get('enrollment_end');
-                if ($enrollmentStart && $enrollmentEnd) {
-                    $now = now();
-                    $isEnrollmentPeriod = $now->between(
-                        \Carbon\Carbon::parse($enrollmentStart)->startOfDay(),
-                        \Carbon\Carbon::parse($enrollmentEnd)->endOfDay()
-                    );
-                }
+                // Enrollment gating removed — students may join classrooms by code anytime
+                $isEnrollmentPeriod = true;
 
                 if (Auth::check() && Schema::hasTable('announcements')) {
                     $userRole = strtolower((string) Auth::user()->role);
@@ -82,7 +75,7 @@ class AppServiceProvider extends ServiceProvider
                 'activeSem' => $activeSem,
                 'activeTerm' => $activeTerm,
                 'isEnrollmentPeriod' => $isEnrollmentPeriod,
-                'newAnnouncementsCount' => $newAnnouncementsCount
+                'newAnnouncementsCount' => $newAnnouncementsCount,
             ]);
         });
     }

@@ -20,18 +20,8 @@ class AcademicTermService
 
     public function enrollmentOpen(): bool
     {
-        $start = $this->settings->get('enrollment_start');
-        $end = $this->settings->get('enrollment_end');
-        if (! $start || ! $end) {
-            return false;
-        }
-
-        $now = now()->startOfDay();
-
-        return $now->between(
-            Carbon::parse($start)->startOfDay(),
-            Carbon::parse($end)->endOfDay()
-        );
+        // Enrollment window logic removed — joining by subject code allowed anytime
+        return true;
     }
 
     public function finalExamStarted(): bool

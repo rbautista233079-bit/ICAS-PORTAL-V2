@@ -13,19 +13,30 @@ it('shows add materials button to faculty and admin only', function () {
     $faculty = User::factory()->create(['role' => 'faculty']);
     $student = User::factory()->create(['role' => 'student']);
 
+    $classroom = \App\Models\Classroom::create([
+        'faculty_user_id' => $faculty->id,
+        'name' => 'Test Class',
+        'code' => 'SUB1',
+        'schedule' => 'Mon 9:00 AM',
+        'description' => 'Test',
+        'status' => 'active',
+        'academic_year' => '2024–2025',
+        'semester' => 'Second Semester',
+    ]);
+
     // Faculty should see the button
     $this->actingAs($faculty)
-        ->get(route('faculty.students.show', 'math301'))
-        ->assertSee('+ Add Materials');
+        ->get(route('faculty.classrooms.show', $classroom->id))
+        ->assertSee('+ Add Content');
 
     // Student should not see the button
     $this->actingAs($student)
-        ->get(route('faculty.students.show', 'math301'))
-        ->assertDontSee('+ Add Materials');
+        ->get(route('faculty.classrooms.show', $classroom->id))
+        ->assertRedirect(route('student.dashboard'));
 });
 
 it('allows faculty to upload a material and stores file and db record', function () {
-    Storage::fake('public');
+    Storage::fake('local');
 
     $faculty = User::factory()->create(['role' => 'faculty']);
 
@@ -49,5 +60,5 @@ it('allows faculty to upload a material and stores file and db record', function
 
     $material = Material::where('title', 'Integration Notes')->first();
     expect($material)->not->toBeNull();
-    Storage::disk('public')->assertExists($material->file_path);
+    Storage::disk('local')->assertExists($material->file_path);
 });

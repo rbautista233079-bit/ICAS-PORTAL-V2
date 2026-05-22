@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class VerificationController extends Controller
@@ -27,7 +28,7 @@ class VerificationController extends Controller
             $request->validate(['verification_file' => 'required|file|mimes:jpg,png,pdf|max:2048']);
         }
 
-        $path = $request->file('verification_file')->store('public/verifications');
+        $path = $request->file('verification_file')->store('verifications', 'local');
 
         $user->verification_file = $path;
         $user->status = 'pending';
