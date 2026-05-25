@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+ @extends('layouts.admin')
 
 @section('title', 'Classrooms')
 @section('pageDescription', 'Review all classrooms, faculty assignments, and academic performance metrics.')

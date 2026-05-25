@@ -38,50 +38,58 @@ class ClassroomController extends Controller
             ->where('semester', $settings->get('current_semester'))
             ->withCount('students')
             ->orderByDesc('created_at')
+            ->get();
+
+        // Batch load all grades and attendance records instead of per-classroom queries
+        $classroomCodes = $classrooms->pluck('code')->toArray();
+
+        $allGrades = StudentModuleRecord::whereIn('module_code', $classroomCodes)
+            ->whereNotNull('grade_percent')
             ->get()
-            ->map(function (Classroom $c): array {
-                $grading = new GradingService;
-                $grades = StudentModuleRecord::where('module_code', $c->code)
-                    ->whereNotNull('grade_percent')
-                    ->get()
-                    ->map(fn ($r) => $grading->toGpa((float) $r->grade_percent))
-                    ->filter(fn ($g) => is_string($g) && $g !== 'Dropped')
-                    ->map(fn ($g) => (float) $g)
-                    ->all();
+            ->groupBy('module_code');
 
-                $avgGrade = count($grades) > 0 ? number_format(array_sum($grades) / count($grades), 2) : null;
+        $allAttendance = FacultyAttendanceRecord::where('faculty_user_id', $faculty->id)
+            ->whereIn('student_class', $classroomCodes)
+            ->get()
+            ->groupBy('student_class');
 
-                $totalAttendance = FacultyAttendanceRecord::where('faculty_user_id', $c->faculty_user_id)
-                    ->where('student_class', $c->code)
-                    ->count();
+        $grading = new GradingService;
+        $classroomsArray = $classrooms->map(function (Classroom $c) use ($allGrades, $allAttendance, $grading): array {
+            $grades = ($allGrades->get($c->code) ?? collect())
+                ->map(fn ($r) => $grading->toGpa((float) $r->grade_percent))
+                ->filter(fn ($g) => is_string($g) && $g !== 'Dropped')
+                ->map(fn ($g) => (float) $g)
+                ->all();
 
-                $presentAttendance = FacultyAttendanceRecord::where('faculty_user_id', $c->faculty_user_id)
-                    ->where('student_class', $c->code)
-                    ->where('status', 'Present')
-                    ->count();
+            $avgGrade = count($grades) > 0 ? number_format(array_sum($grades) / count($grades), 2) : null;
 
-                $attendanceRate = $totalAttendance > 0
-                    ? round(($presentAttendance / $totalAttendance) * 100)
-                    : null;
+            $attendanceRecords = $allAttendance->get($c->code) ?? collect();
+            $totalAttendance = $attendanceRecords->count();
+            $presentAttendance = $attendanceRecords->where('status', 'Present')->count();
 
-                return [
-                    'id' => $c->id,
-                    'name' => $c->name,
-                    'code' => $c->code,
-                    'schedule' => $c->schedule,
-                    'description' => $c->description,
-                    'status' => $c->status,
-                    'student_count' => $c->students_count,
-                    'avg_grade' => $avgGrade !== null ? $avgGrade : null,
-                    'attendance_rate' => $attendanceRate !== null ? $attendanceRate.'%' : null,
-                    'created_at' => $c->created_at?->format('M j, Y'),
-                ];
-            })
+            $attendanceRate = $totalAttendance > 0
+                ? round(($presentAttendance / $totalAttendance) * 100)
+                : null;
+
+            return [
+                'id' => $c->id,
+                'name' => $c->name,
+                'code' => $c->code,
+                'schedule' => $c->schedule,
+                'description' => $c->description,
+                'status' => $c->status,
+                'student_count' => $c->students_count,
+                'avg_grade' => $avgGrade !== null ? $avgGrade : null,
+                'attendance_rate' => $attendanceRate !== null ? $attendanceRate.'%' : null,
+                'created_at' => $c->created_at?->format('M j, Y'),
+            ];
+        })
             ->all();
 
         $termService = new AcademicTermService;
 
-        return view('faculty.classrooms', compact('classrooms'))
+        return view('faculty.classrooms')
+            ->with('classrooms', $classroomsArray)
             ->with('currentSemester', $termService->getCurrentSemester())
             ->with('enrollmentOpen', $termService->enrollmentOpen());
     }
