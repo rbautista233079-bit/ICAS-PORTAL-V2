@@ -85,12 +85,17 @@
     <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
         <h3 class="text-lg font-bold text-slate-900 mb-2">Registration Trend</h3>
         <p class="text-sm text-slate-500 mb-6">New user registrations per month (students & faculty).</p>
-        @php $maxStudents = max(array_column($registrationTrend, 'students')); @endphp
+        @php
+            $maxValue = 0;
+            foreach ($registrationTrend as $row) {
+                $maxValue = max($maxValue, $row['students'], $row['faculty']);
+            }
+        @endphp
         <div class="flex items-end gap-4 h-48">
             @foreach($registrationTrend as $row)
                 @php
-                    $sPct = $maxStudents > 0 ? round(($row['students'] / $maxStudents) * 100) : 0;
-                    $fPct = $maxStudents > 0 ? round(($row['faculty'] / $maxStudents) * 100) : 0;
+                    $sPct = $maxValue > 0 ? round(($row['students'] / $maxValue) * 100) : 0;
+                    $fPct = $maxValue > 0 ? round(($row['faculty'] / $maxValue) * 100) : 0;
                 @endphp
                 <div class="flex-1 flex flex-col items-center gap-1">
                     <div class="w-full flex items-end gap-1 h-36">
