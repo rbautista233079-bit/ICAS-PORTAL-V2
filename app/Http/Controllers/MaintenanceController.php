@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BackupLog;
 use App\Services\BackupService;
 use App\Services\SystemSettingsService;
+use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,9 @@ class MaintenanceController extends Controller
         $scheduledBackup = $this->settings->get('backup_schedule', 'none');
         $lastBackup = null;
         $backupHistory = collect();
+        $maintenanceEnabled = (string) $this->settings->get('maintenance_enabled', '0') === '1';
+        $maintenanceUntilRaw = $this->settings->get('maintenance_until');
+        $maintenanceUntil = $maintenanceUntilRaw ? Carbon::parse($maintenanceUntilRaw) : null;
 
         try {
             $lastBackup = BackupLog::latest()->first();
@@ -60,8 +64,32 @@ class MaintenanceController extends Controller
             'backupFiles',
             'backupHistory',
             'healthChecks',
-            'storageUsedMb'
+            'storageUsedMb',
+            'maintenanceEnabled',
+            'maintenanceUntil'
         ));
+    }
+
+    public function updateMaintenanceMode(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'enabled' => 'required|in:0,1',
+        ]);
+
+        $enabled = $request->input('enabled') === '1';
+
+        if ($enabled) {
+            $until = Carbon::now()->addWeek();
+            $this->settings->set('maintenance_enabled', '1', 'boolean');
+            $this->settings->set('maintenance_until', $until->toDateTimeString(), 'string');
+
+            return back()->with('status', 'Maintenance mode enabled for Student and Faculty portals.');
+        }
+
+        $this->settings->set('maintenance_enabled', '0', 'boolean');
+        $this->settings->set('maintenance_until', '', 'string');
+
+        return back()->with('status', 'Maintenance mode disabled.');
     }
 
     /**

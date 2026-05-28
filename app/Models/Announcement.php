@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\AdminModelChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,8 @@ class Announcement extends Model
         'content',
         'audience',
         'attachment_path',
+        'attachment_filename',
+        'attachment_mime',
         'created_by',
     ];
 
@@ -50,15 +53,15 @@ class Announcement extends Model
     protected static function booted(): void
     {
         static::created(function ($model) {
-            event(new \App\Events\AdminModelChanged('announcement', $model->id, 'created'));
+            event(new AdminModelChanged('announcement', $model->id, 'created'));
         });
 
         static::updated(function ($model) {
-            event(new \App\Events\AdminModelChanged('announcement', $model->id, 'updated'));
+            event(new AdminModelChanged('announcement', $model->id, 'updated'));
         });
 
         static::deleted(function ($model) {
-            event(new \App\Events\AdminModelChanged('announcement', $model->id, 'deleted'));
+            event(new AdminModelChanged('announcement', $model->id, 'deleted'));
         });
     }
 }

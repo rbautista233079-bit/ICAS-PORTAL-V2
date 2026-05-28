@@ -56,9 +56,9 @@
                         </select>
 
                         <select name="student_class" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
-                            <option value="" @selected($filters['student_class'] === '')>All Classes</option>
-                            @foreach($classOptions as $classOption)
-                                <option value="{{ $classOption }}" @selected($filters['student_class'] === $classOption)>{{ $classOption }}</option>
+                            <option value="" @selected($filters['student_class'] === '')>All Subjects</option>
+                            @foreach($subjectOptions as $subjectOption)
+                                <option value="{{ $subjectOption['value'] }}" @selected($filters['student_class'] === $subjectOption['value'])>{{ $subjectOption['label'] }}</option>
                             @endforeach
                         </select>
 
@@ -104,7 +104,7 @@
                         class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none"
                         required
                     >
-                        <option value="">Select Subject/Class</option>
+                        <option value="">Select Subject</option>
                         @foreach($facultyClassrooms as $classroom)
                             <option value="{{ $classroom->code }}" @selected(old('student_class') === $classroom->code)>{{ $classroom->name }} ({{ $classroom->code }})</option>
                         @endforeach
@@ -146,7 +146,7 @@
                         const attendanceDate = document.getElementById('attendance-date-input').value;
 
                         if (!studentClass || !attendanceDate) {
-                            alert('Please enter Class and Date first.');
+                            alert('Please select a Subject and Date first.');
                             return;
                         }
 
@@ -198,7 +198,7 @@
                         <thead>
                             <tr>
                                 <th class="px-4 py-4 font-semibold text-slate-500">Student Name</th>
-                                <th class="px-4 py-4 font-semibold text-slate-500">Class</th>
+                                <th class="px-4 py-4 font-semibold text-slate-500">Subject</th>
                                 <th class="px-4 py-4 font-semibold text-slate-500">Date</th>
                                 <th class="px-4 py-4 font-semibold text-slate-500">Status</th>
                                 <th class="px-4 py-4 font-semibold text-slate-500">Actions</th>
@@ -213,7 +213,7 @@
                                             <span class="font-medium text-slate-900">{{ $record['name'] }}</span>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4">{{ $record['class'] }}</td>
+                                    <td class="px-4 py-4">{{ $record['subject'] }}</td>
                                     <td class="px-4 py-4">{{ $record['date'] }}</td>
                                     <td class="px-4 py-4">
                                         <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold {{ $record['status'] === 'Present' ? 'bg-emerald-100 text-emerald-700' : ($record['status'] === 'Late' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700') }}">{{ $record['status'] }}</span>
@@ -248,6 +248,7 @@
                     <div>
                         <h2 class="text-2xl font-semibold text-slate-900">Grade Records</h2>
                         <p class="mt-2 text-sm text-slate-500">Manage student grades and activities.</p>
+                        <p class="mt-1 text-xs font-semibold text-slate-400 uppercase tracking-widest">{{ $activeSem }} · {{ $activeGradingPeriod }}</p>
                     </div>
                     <form method="GET" action="{{ route('faculty.grades') }}" class="flex flex-wrap items-center gap-3 w-full lg:w-auto lg:justify-end">
                         <input type="hidden" name="tab" value="grades">

@@ -97,6 +97,7 @@
                     <div>
                         <p class="text-base font-semibold text-white">Admin Portal</p>
                         <p class="text-[10px] font-bold text-green-200 uppercase tracking-widest mt-0.5 opacity-80">{{ $activeTerm }}</p>
+                        <p class="text-[10px] font-bold text-green-100 uppercase tracking-widest mt-0.5 opacity-70">Grading Period: {{ $activeGradingPeriod }}</p>
                     </div>
                 </div>
 

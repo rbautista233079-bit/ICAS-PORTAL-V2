@@ -22,6 +22,10 @@ Route::get('/', function () {
     return view('home');
 })->name('home');
 
+Route::get('/system-maintenance', function () {
+    return view('maintenance');
+})->name('maintenance.notice');
+
 // Auth Routes
 Route::get('/login', function () {
     if (Auth::check()) {
@@ -70,7 +74,7 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
     });
 
-    Route::prefix('student')->middleware('role:student')->name('student.')->group(function () {
+    Route::prefix('student')->middleware(['role:student', 'maintenance.mode'])->name('student.')->group(function () {
         Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('dashboard');
         Route::get('/profile', [StudentController::class, 'profile'])->name('profile');
         Route::get('/announcements', [AnnouncementController::class, 'studentIndex'])->name('announcements.index');
@@ -97,7 +101,7 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::post('/settings/password', [StudentController::class, 'updatePassword'])->name('settings.password');
     });
 
-    Route::prefix('faculty')->middleware('role:faculty')->name('faculty.')->group(function () {
+    Route::prefix('faculty')->middleware(['role:faculty', 'maintenance.mode'])->name('faculty.')->group(function () {
         Route::get('/dashboard', [FacultyController::class, 'dashboard'])->name('dashboard');
         Route::get('/announcements', [AnnouncementController::class, 'facultyIndex'])->name('announcements.index');
         Route::post('/announcements', [AnnouncementController::class, 'facultyStore'])->name('announcements.store');
@@ -202,5 +206,6 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::delete('/maintenance/backup', [MaintenanceController::class, 'deleteBackup'])->name('maintenance.backup.delete');
         Route::post('/maintenance/restore', [MaintenanceController::class, 'restore'])->name('maintenance.restore');
         Route::post('/maintenance/schedule', [MaintenanceController::class, 'updateSchedule'])->name('maintenance.schedule');
+        Route::post('/maintenance/mode', [MaintenanceController::class, 'updateMaintenanceMode'])->name('maintenance.mode');
     });
 });

@@ -28,6 +28,7 @@ class FileController extends Controller
                 if ($viewer->role !== 'admin' && (int) $viewer->id !== (int) $user->id) {
                     abort(403);
                 }
+
                 return $this->streamInline(
                     $user->profile_photo,
                     $this->defaultFilename($user->profile_photo, 'profile-photo'),
@@ -42,6 +43,7 @@ class FileController extends Controller
                 if ($viewer->role !== 'admin' && (int) $viewer->id !== (int) $user->id) {
                     abort(403);
                 }
+
                 return $this->streamInline(
                     $user->receipt_proof,
                     $this->defaultFilename($user->receipt_proof, 'receipt-proof'),
@@ -56,6 +58,7 @@ class FileController extends Controller
                 if ($viewer->role !== 'admin' && (int) $viewer->id !== (int) $user->id) {
                     abort(403);
                 }
+
                 return $this->streamInline(
                     $user->student_id_proof,
                     $this->defaultFilename($user->student_id_proof, 'student-id'),
@@ -68,9 +71,12 @@ class FileController extends Controller
                 if (! $announcement->attachment_path) {
                     abort(404);
                 }
-                return $this->streamDownload(
+
+                $filename = $announcement->attachment_filename ?: $this->defaultFilename($announcement->attachment_path, 'attachment');
+
+                return $this->streamInline(
                     $announcement->attachment_path,
-                    $announcement->attachment_filename ?? 'attachment',
+                    $filename,
                     $announcement->attachment_mime
                 );
 
@@ -80,6 +86,7 @@ class FileController extends Controller
                     abort(404);
                 }
                 $this->authorizeMaterial($material, $viewer);
+
                 return $this->streamDownload(
                     $material->file_path,
                     $material->original_filename ?? 'material',
@@ -92,6 +99,7 @@ class FileController extends Controller
                     abort(404);
                 }
                 $this->authorizeSubmission($submission, $viewer);
+
                 return $this->streamDownload(
                     $submission->file_path,
                     $submission->original_filename ?? 'submission',
@@ -135,6 +143,7 @@ class FileController extends Controller
     private function defaultFilename(string $path, string $fallback): string
     {
         $base = basename($path);
+
         return $base !== '' ? $base : $fallback;
     }
 

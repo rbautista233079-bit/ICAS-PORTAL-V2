@@ -35,6 +35,12 @@
                 <td style="width: 15%; text-align: right;"><strong>Status:</strong></td>
                 <td style="width: 15%; text-align: right;">Official</td>
             </tr>
+            <tr>
+                <td><strong>Semester:</strong></td>
+                <td>{{ $semester }}</td>
+                <td style="text-align: right;"><strong>Grading Period:</strong></td>
+                <td style="text-align: right;">{{ $gradingPeriod }}</td>
+            </tr>
         </table>
     </div>
 

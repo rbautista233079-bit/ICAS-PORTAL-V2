@@ -39,6 +39,12 @@
                         <option value="ICT" @selected(($strandFilter ?? '') === 'ICT')>ICT</option>
                         <option value="HE" @selected(($strandFilter ?? '') === 'HE')>HE</option>
                     </select>
+                    <select name="grading_period" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white" onchange="this.form.submit()">
+                        <option value="">All Periods</option>
+                        <option value="PRELIM" @selected(($gradingPeriodFilter ?? '') === 'PRELIM')>PRELIM</option>
+                        <option value="MIDTERM" @selected(($gradingPeriodFilter ?? '') === 'MIDTERM')>MIDTERM</option>
+                        <option value="FINAL" @selected(($gradingPeriodFilter ?? '') === 'FINAL')>FINAL</option>
+                    </select>
                     <select name="subject" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white" onchange="this.form.submit()">
                         <option value="">All Subjects</option>
                         @foreach($subjectOptions as $option)
@@ -53,6 +59,7 @@
                     <input type="hidden" name="course" value="{{ $courseFilter }}">
                     <input type="hidden" name="strand" value="{{ $strandFilter ?? '' }}">
                     <input type="hidden" name="subject" value="{{ $subjectFilter }}">
+                    <input type="hidden" name="grading_period" value="{{ $gradingPeriodFilter ?? '' }}">
                     <select name="format" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white">
                         <option value="csv">Excel / CSV</option>
                         <option value="pdf">Official PDF Record</option>

@@ -42,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
         View::composer(['layouts.*', 'admin.*', 'faculty.*', 'student.*'], function ($view): void {
             $activeAY = '2024–2025';
             $activeSem = 'Second Semester';
+            $activeGradingPeriod = 'PRELIM';
             $isEnrollmentPeriod = false;
             $newAnnouncementsCount = 0;
 
@@ -49,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
                 $settings = new SystemSettingsService;
                 $activeAY = $settings->get('academic_year', '2024–2025');
                 $activeSem = $settings->get('current_semester', 'Second Semester');
+                $activeGradingPeriod = $settings->get('grading_period', 'PRELIM');
 
                 // Enrollment gating removed — students may join classrooms by code anytime
                 $isEnrollmentPeriod = true;
@@ -74,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
                 'activeAY' => $activeAY,
                 'activeSem' => $activeSem,
                 'activeTerm' => $activeTerm,
+                'activeGradingPeriod' => $activeGradingPeriod,
                 'isEnrollmentPeriod' => $isEnrollmentPeriod,
                 'newAnnouncementsCount' => $newAnnouncementsCount,
             ]);

@@ -21,7 +21,7 @@
                     <p class="mt-2 text-sm text-slate-500">Track attendance activity and monitor trends by class, date range, and faculty.</p>
                 </div>
 
-                <form method="GET" action="{{ route('admin.attendance') }}" class="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1.2fr_1fr_1fr_auto_auto] xl:items-center">
+                <form method="GET" action="{{ route('admin.attendance') }}" class="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1.2fr_1fr_1fr_auto_auto] xl:items-center">
                     <input
                         type="text"
                         name="search"
@@ -51,6 +51,13 @@
                         <option value="" @selected(($filters['course'] ?? '') === '')>All Courses</option>
                         @foreach(($courseOptions ?? []) as $courseOpt)
                             <option value="{{ $courseOpt }}" @selected(($filters['course'] ?? '') === $courseOpt)>{{ $courseOpt }}</option>
+                        @endforeach
+                    </select>
+
+                    <select name="strand" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
+                        <option value="" @selected(($filters['strand'] ?? '') === '')>All Strands</option>
+                        @foreach(($strandOptions ?? []) as $strandOpt)
+                            <option value="{{ $strandOpt }}" @selected(($filters['strand'] ?? '') === $strandOpt)>{{ $strandOpt }}</option>
                         @endforeach
                     </select>
 
@@ -122,7 +129,7 @@
                                         <span class="font-medium text-slate-900">{{ $record->student_name }}</span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-4">{{ $record->course_strand ?? $record->studentUser?->course ?? '-' }}</td>
+                                <td class="px-4 py-4">{{ $record->course_strand ?? $record->studentUser?->course ?? $record->studentUser?->strand ?? '-' }}</td>
                                 <td class="px-4 py-4">{{ $record->academic_level ?? $record->studentUser?->academic_level ?? '-' }}</td>
                                 <td class="px-4 py-4">
                                     <div class="text-slate-900 font-medium">{{ $record->faculty?->name ?? 'Unknown' }}</div>

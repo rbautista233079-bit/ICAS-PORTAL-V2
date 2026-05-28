@@ -39,27 +39,34 @@ class AdminController extends Controller
         $pendingRequests = DocumentRequest::where('status', 'Pending')->count();
 
         $summary = [
-            ['label' => 'Total Users', 'value' => (string) $totalUsers],
-            ['label' => 'Active Teachers', 'value' => (string) $activeTeachers],
-            ['label' => 'Active Students', 'value' => (string) $activeStudents],
-            ['label' => 'Pending Requests', 'value' => (string) $pendingRequests],
+            ['label' => 'Total Users', 'value' => (string) $totalUsers, 'url' => route('admin.users')],
+            ['label' => 'Active Teachers', 'value' => (string) $activeTeachers, 'url' => route('admin.users', ['status' => 'active', 'role' => 'faculty'])],
+            ['label' => 'Active Students', 'value' => (string) $activeStudents, 'url' => route('admin.users', ['status' => 'active', 'role' => 'student'])],
+            ['label' => 'Pending Requests', 'value' => (string) $pendingRequests, 'url' => route('admin.documents', ['status' => 'Pending'])],
         ];
 
-        $totalEnrollments = StudentModuleRecord::count();
         $totalClassrooms = Classroom::count();
-        $totalAttendanceRecords = FacultyAttendanceRecord::count();
+        $totalCourses = User::where('role', 'student')
+            ->whereIn('course', ['BSIT', 'BSHM'])
+            ->distinct('course')
+            ->count('course');
+        $totalStrands = User::where('role', 'student')
+            ->where('academic_level', 'Senior High School')
+            ->whereIn('strand', ['ICT', 'HE'])
+            ->distinct('strand')
+            ->count('strand');
         $totalAnnouncements = Announcement::count();
 
         $overview = [
-            ['title' => 'Total Enrollments', 'value' => (string) $totalEnrollments],
+            ['title' => 'Total Courses', 'value' => (string) $totalCourses],
             ['title' => 'Active Classrooms', 'value' => (string) $totalClassrooms],
-            ['title' => 'Attendance Records', 'value' => (string) $totalAttendanceRecords],
+            ['title' => 'Total Strands', 'value' => (string) $totalStrands],
             ['title' => 'Total Announcements', 'value' => (string) $totalAnnouncements],
         ];
 
         $recentActions = [
             ['title' => 'Total Registered Users', 'subtitle' => $totalUsers.' users in the system'],
-            ['title' => 'Active Courses', 'subtitle' => 'System is running smoothly'],
+            ['title' => 'Status', 'subtitle' => 'System is running smoothly'],
             ['title' => 'System Health', 'subtitle' => 'All systems operational'],
         ];
 
@@ -293,6 +300,7 @@ class AdminController extends Controller
             'school_name' => 'INFOTECH COLLEGE OF ARTS AND SCIENCES - MARCOS HIGHWAY',
             'academic_year' => $settings->get('academic_year', '2024–2025'),
             'semester' => $settings->get('current_semester', 'Second Semester'),
+            'grading_period' => $settings->get('grading_period', 'PRELIM'),
             // Enrollment window removed; students join classrooms by subject code any time
             'exam_start' => $settings->get('final_exam_start', '2025-03-17'),
             'timezone' => $settings->get('timezone', 'Asia/Manila'),
@@ -323,6 +331,7 @@ class AdminController extends Controller
         $data = $request->validate([
             'academic_year' => 'nullable|string|max:50',
             'current_semester' => 'nullable|string|max:50',
+            'grading_period' => 'nullable|string|in:PRELIM,MIDTERM,FINAL',
             'final_exam_start' => 'nullable|date',
             'timezone' => 'nullable|string|max:100',
             'grading_scale' => 'nullable|string|max:30',
@@ -397,26 +406,41 @@ class AdminController extends Controller
             ->pluck('subject_code')
             ->all();
 
+        $strandOptions = FacultyAttendanceRecord::query()
+            ->where('academic_level', 'Senior High School')
+            ->whereNotNull('course_strand')
+            ->select('course_strand')
+            ->distinct()
+            ->orderBy('course_strand')
+            ->pluck('course_strand')
+            ->all();
+
         $facultyOptions = User::query()
             ->where('role', 'faculty')
             ->orderBy('name')
             ->get(['id', 'name'])
             ->all();
 
-        return view('admin.attendance', compact('summary', 'records', 'filters', 'activeFilters', 'courseOptions', 'facultyOptions', 'subjectOptions'));
+        return view('admin.attendance', compact('summary', 'records', 'filters', 'activeFilters', 'courseOptions', 'facultyOptions', 'subjectOptions', 'strandOptions'));
     }
 
     public function exportAttendance(Request $request)
     {
         $filters = $this->resolveAttendanceFilters($request);
 
-        $baseQuery = $this->queryAttendanceRecords($filters)->orderByDesc('attendance_date')->orderBy('student_name');
+        $baseQuery = $this->queryAttendanceRecords($filters)
+            ->with(['faculty:id,name', 'studentUser:id,course,strand'])
+            ->orderByDesc('attendance_date')
+            ->orderBy('student_name');
 
         $records = $baseQuery->get()->map(function ($r) {
             return [
                 'student_name' => $r->student_name,
-                'student_course' => $r->course_strand ?? '',
-                'student_academic_level' => $r->academic_level ?? '',
+                'student_course' => $r->course_strand
+                    ?? $r->studentUser?->course
+                    ?? $r->studentUser?->strand
+                    ?? '',
+                'student_academic_level' => $r->academic_level ?? $r->studentUser?->academic_level ?? '',
                 'faculty' => $r->faculty?->name ?? '',
                 'subject' => $r->subject_code ?? '',
                 'attendance_date' => $r->attendance_date?->format('Y-m-d') ?? '',
@@ -459,6 +483,10 @@ class AdminController extends Controller
         $academicLevelFilter = $request->query('academic_level', '');
         $courseFilter = $request->query('course', '');
         $strandFilter = $request->query('strand', '');
+        $settings = new SystemSettingsService;
+        $gradingPeriodFilter = $request->has('grading_period')
+            ? (string) $request->query('grading_period', '')
+            : (string) $settings->get('grading_period', 'PRELIM');
 
         $classrooms = Classroom::query()
             ->where('status', 'active')
@@ -469,6 +497,12 @@ class AdminController extends Controller
 
         $gradesQuery = Grade::query()
             ->with(['student:id,name,academic_level,course,strand'])
+            ->where(fn ($query) => $query
+                ->where('academic_year', $settings->get('academic_year', '2024–2025'))
+                ->orWhereNull('academic_year'))
+            ->where(fn ($query) => $query
+                ->where('semester', $settings->get('current_semester', 'Second Semester'))
+                ->orWhereNull('semester'))
             ->when($statusFilter !== '', function ($q) use ($statusFilter) {
                 if ($statusFilter === 'Pending') {
                     $q->whereNull('average');
@@ -491,6 +525,9 @@ class AdminController extends Controller
                         $q->where('strand', $strandFilter);
                     }
                 });
+            })
+            ->when($gradingPeriodFilter !== '', function ($query) use ($gradingPeriodFilter) {
+                $query->where('grading_period', $gradingPeriodFilter);
             });
 
         $coursesData = (clone $gradesQuery)
@@ -547,7 +584,7 @@ class AdminController extends Controller
             ['label' => 'Students Graded', 'value' => (string) $studentsGraded, 'color' => 'slate'],
         ];
 
-        return view('admin.grades', compact('courses', 'allGrades', 'subjectFilter', 'subjectOptions', 'academicLevelFilter', 'courseFilter', 'strandFilter', 'overview', 'statusFilter', 'classroomMap'));
+        return view('admin.grades', compact('courses', 'allGrades', 'subjectFilter', 'subjectOptions', 'academicLevelFilter', 'courseFilter', 'strandFilter', 'gradingPeriodFilter', 'overview', 'statusFilter', 'classroomMap'));
     }
 
     public function verifyGrade(Grade $grade): RedirectResponse
@@ -565,10 +602,22 @@ class AdminController extends Controller
         $academicLevelFilter = $request->query('academic_level');
         $courseFilter = $request->query('course');
         $strandFilter = $request->query('strand');
+        $gradingPeriodFilter = (string) $request->query('grading_period', '');
         $format = $request->query('format', 'csv');
+        $settings = new SystemSettingsService;
+        $semester = $settings->get('current_semester', 'Second Semester');
+        $gradingPeriod = $request->has('grading_period') && $gradingPeriodFilter === ''
+            ? 'All Periods'
+            : ($gradingPeriodFilter ?: $settings->get('grading_period', 'PRELIM'));
 
         $query = Grade::query()
             ->with(['student:id,name,email,academic_level,course,strand'])
+            ->where(fn ($query) => $query
+                ->where('academic_year', $settings->get('academic_year', '2024–2025'))
+                ->orWhereNull('academic_year'))
+            ->where(fn ($query) => $query
+                ->where('semester', $settings->get('current_semester', 'Second Semester'))
+                ->orWhereNull('semester'))
             ->when($subjectFilter, function ($query, $subjectFilter) {
                 return $query->where('subject_id', $subjectFilter);
             })
@@ -584,6 +633,9 @@ class AdminController extends Controller
                         $q->where('strand', $strandFilter);
                     }
                 });
+            })
+            ->when($gradingPeriodFilter !== null && $gradingPeriodFilter !== '', function ($query) use ($gradingPeriodFilter) {
+                $query->where('grading_period', $gradingPeriodFilter);
             })
             ->orderBy('subject_id')
             ->orderBy('student_id');
@@ -601,11 +653,16 @@ class AdminController extends Controller
             if ($academicLevelFilter) {
                 $scope .= ' | '.$academicLevelFilter;
             }
+            if ($gradingPeriod) {
+                $scope .= ' | '.$gradingPeriod;
+            }
 
             $pdf = Pdf::loadView('admin.exports.grades_pdf', [
                 'records' => $records,
                 'scope' => $scope,
                 'classroomMap' => $classroomMap,
+                'semester' => $semester,
+                'gradingPeriod' => $gradingPeriod,
             ])->setPaper('a4', 'landscape');
 
             return $pdf->download('official-academic-record-'.now()->format('Ymd-His').'.pdf');
@@ -613,7 +670,7 @@ class AdminController extends Controller
 
         $filename = 'grade-generator-'.now()->format('Ymd-His').'.csv';
 
-        return response()->streamDownload(function () use ($records, $classroomMap): void {
+        return response()->streamDownload(function () use ($records, $classroomMap, $semester, $gradingPeriod): void {
             $output = fopen('php://output', 'w');
 
             if ($output === false) {
@@ -621,7 +678,7 @@ class AdminController extends Controller
             }
 
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Student Name', 'Student Email', 'Course/Strand', 'Level', 'Module Name', 'Module Code', 'Instructor', 'Grade (%)', 'GPA Equivalent']);
+            fputcsv($output, ['Semester', 'Grading Period', 'Student Name', 'Student Email', 'Course/Strand', 'Level', 'Module Name', 'Module Code', 'Instructor', 'Grade (%)', 'GPA Equivalent']);
 
             $gradingService = new GradingService;
 
@@ -636,6 +693,8 @@ class AdminController extends Controller
                 $classroom = $classroomMap->get($record->subject_id);
 
                 fputcsv($output, [
+                    $semester,
+                    $gradingPeriod,
                     $record->student?->name ?? 'Unknown Student',
                     $record->student?->email ?? '',
                     $courseStrand,
@@ -796,7 +855,7 @@ class AdminController extends Controller
     }
 
     /**
-     * @return array{search: string, status: string, faculty_user_id: string, academic_level: string, course: string, subject: string, from_date: string, to_date: string}
+     * @return array{search: string, status: string, faculty_user_id: string, academic_level: string, course: string, strand: string, subject: string, from_date: string, to_date: string}
      */
     private function resolveAttendanceFilters(Request $request): array
     {
@@ -809,6 +868,7 @@ class AdminController extends Controller
         $facultyUserId = trim((string) $request->query('faculty_user_id', ''));
         $academicLevel = trim((string) $request->query('academic_level', ''));
         $course = trim((string) $request->query('course', ''));
+        $strand = trim((string) $request->query('strand', ''));
         $subject = trim((string) $request->query('subject', ''));
 
         if ($facultyUserId !== '' && ! ctype_digit($facultyUserId)) {
@@ -821,6 +881,7 @@ class AdminController extends Controller
             'faculty_user_id' => $facultyUserId,
             'academic_level' => $academicLevel,
             'course' => $course,
+            'strand' => $strand,
             'subject' => $subject,
             'from_date' => trim((string) $request->query('from_date', '')),
             'to_date' => trim((string) $request->query('to_date', '')),
@@ -828,7 +889,7 @@ class AdminController extends Controller
     }
 
     /**
-     * @param  array{search: string, status: string, faculty_user_id: string, academic_level: string, course: string, from_date: string, to_date: string}  $filters
+     * @param  array{search: string, status: string, faculty_user_id: string, academic_level: string, course: string, strand: string, subject: string, from_date: string, to_date: string}  $filters
      */
     private function queryAttendanceRecords(array $filters, bool $showHistory = false): Builder
     {
@@ -846,6 +907,10 @@ class AdminController extends Controller
             })
             ->when($filters['course'] !== '', function (Builder $query) use ($filters): void {
                 $query->where('course_strand', $filters['course']);
+            })
+            ->when($filters['strand'] !== '', function (Builder $query) use ($filters): void {
+                $query->where('course_strand', $filters['strand'])
+                    ->where('academic_level', 'Senior High School');
             })
             ->when($filters['subject'] !== '', function (Builder $query) use ($filters): void {
                 $query->where('subject_code', $filters['subject']);

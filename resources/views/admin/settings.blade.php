@@ -51,19 +51,27 @@
     <div x-show="tab==='academic'" x-cloak>
         <section class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
             <h3 class="text-lg font-bold text-slate-900 mb-5">Academic Term Settings</h3>
-            <form method="POST" action="{{ route('admin.settings.update') }}" class="space-y-5">
+            <form id="academic-term-form" method="POST" action="{{ route('admin.settings.update') }}" class="space-y-5">
                 @csrf
                 <div class="grid gap-5 sm:grid-cols-2">
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Academic Year</label>
-                        <input name="academic_year" type="text" value="{{ $schoolSettings['academic_year'] }}" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
+                        <input name="academic_year" data-term-setting type="text" value="{{ $schoolSettings['academic_year'] }}" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Current Semester</label>
-                        <select name="current_semester" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
+                        <select name="current_semester" data-term-setting class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
                             <option value="First Semester" @selected($schoolSettings['semester']==='First Semester')>First Semester</option>
                             <option value="Second Semester" @selected($schoolSettings['semester']==='Second Semester')>Second Semester</option>
                             <option value="Third Semester" @selected($schoolSettings['semester']==='Third Semester')>Third Semester</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Grading Period</label>
+                        <select name="grading_period" data-term-setting class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
+                            <option value="PRELIM" @selected($schoolSettings['grading_period']==='PRELIM')>PRELIM</option>
+                            <option value="MIDTERM" @selected($schoolSettings['grading_period']==='MIDTERM')>MIDTERM</option>
+                            <option value="FINAL" @selected($schoolSettings['grading_period']==='FINAL')>FINAL</option>
                         </select>
                     </div>
                     <div>
@@ -73,6 +81,22 @@
                 </div>
                 <button type="submit" class="rounded-2xl bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700 transition">Save Term Settings</button>
             </form>
+
+            <div id="term-confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+                <div class="w-full max-w-md rounded-3xl border border-slate-200 bg-white shadow-2xl">
+                    <div class="border-b border-slate-100 px-6 py-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-amber-500">Confirm rollover</p>
+                        <h4 class="mt-2 text-xl font-bold text-slate-900">Apply Academic Term Changes?</h4>
+                    </div>
+                    <div class="px-6 py-5 text-sm text-slate-600">
+                        Changing the School Year, Semester, or Grading Period updates the active dashboard context. This action is non-destructive and preserves prior records.
+                    </div>
+                    <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+                        <button id="cancel-term-change-btn" type="button" class="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+                        <button id="confirm-term-change-btn" type="button" class="rounded-2xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600">Yes, Confirm Changes</button>
+                    </div>
+                </div>
+            </div>
         </section>
     </div>
 
@@ -293,6 +317,50 @@
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const termForm = document.getElementById('academic-term-form');
+        const modal = document.getElementById('term-confirm-modal');
+        const confirmBtn = document.getElementById('confirm-term-change-btn');
+        const cancelBtn = document.getElementById('cancel-term-change-btn');
+
+        if (termForm && modal && confirmBtn && cancelBtn) {
+            let hasTermChange = false;
+
+            termForm.querySelectorAll('[data-term-setting]').forEach(function (field) {
+                field.addEventListener('change', function () {
+                    hasTermChange = true;
+                });
+            });
+
+            function openModal() {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            termForm.addEventListener('submit', function (event) {
+                if (!hasTermChange) {
+                    return;
+                }
+
+                event.preventDefault();
+                openModal();
+
+                confirmBtn.onclick = function () {
+                    closeModal();
+                    hasTermChange = false;
+                    termForm.submit();
+                };
+
+                cancelBtn.onclick = function () {
+                    closeModal();
+                };
+            });
+        }
+
         document.querySelectorAll('[data-password-toggle]').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const targetId = btn.getAttribute('data-password-toggle');

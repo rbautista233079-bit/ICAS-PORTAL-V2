@@ -31,7 +31,7 @@
         {{-- Key Metrics Grid --}}
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             @foreach($summary as $item)
-                <div class="rounded-3xl bg-white p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                <a href="{{ $item['url'] }}" class="block rounded-3xl bg-white p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-green-200 transition-shadow">
                     <p class="text-xs uppercase tracking-[0.2em] font-semibold text-slate-500">{{ $item['label'] }}</p>
                     <div class="mt-4 flex items-center justify-between gap-4">
                         <p class="text-4xl font-bold text-slate-900">{{ $item['value'] }}</p>
@@ -39,7 +39,7 @@
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                         </span>
                     </div>
-                </div>
+                </a>
             @endforeach
         </div>
 

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Classroom;
+use App\Models\ClassroomGradingCriteria;
 use App\Models\Grade;
 use App\Services\GradingService;
+use App\Services\SystemSettingsService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -14,6 +16,10 @@ class GradeController extends Controller
     {
         $gradesData = $request->input('grades', []);
         $skipped = [];
+        $settings = new SystemSettingsService;
+        $academicYear = $settings->get('academic_year', '2024–2025');
+        $semester = $settings->get('current_semester', 'Second Semester');
+        $gradingPeriod = $settings->get('grading_period', 'PRELIM');
 
         foreach ($gradesData as $data) {
             if (empty($data['student_id']) || empty($data['subject_id'])) {
@@ -23,12 +29,13 @@ class GradeController extends Controller
             $classroom = Classroom::where('code', $data['subject_id'])->first();
             if ($classroom !== null && ! auth()->user()->can('manage', $classroom)) {
                 $skipped[] = $data['subject_id'];
+
                 continue;
             }
 
             $components = $data['components'] ?? [];
             $average = 0;
-            $criteria = $classroom ? \App\Models\ClassroomGradingCriteria::where('classroom_id', $classroom->id)->get() : collect();
+            $criteria = $classroom ? ClassroomGradingCriteria::where('classroom_id', $classroom->id)->get() : collect();
 
             if ($criteria->isNotEmpty()) {
                 foreach ($criteria as $criterion) {
@@ -51,11 +58,15 @@ class GradeController extends Controller
                 [
                     'student_id' => $data['student_id'],
                     'subject_id' => $data['subject_id'],
+                    'academic_year' => $academicYear,
+                    'semester' => $semester,
+                    'grading_period' => $gradingPeriod,
                 ],
                 [
                     'component_scores' => $components,
                     'average' => $average,
                     'remarks' => $remarks,
+                    'grading_period' => $gradingPeriod,
                     // keep legacy columns updated for compatibility if they exist in components
                     'quiz' => $components['quiz'] ?? ($data['quiz'] ?? 0),
                     'assignment' => $components['assignment'] ?? ($data['assignment'] ?? 0),
@@ -75,8 +86,19 @@ class GradeController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $subjectId = $request->query('grade_subject', '');
+        $settings = new SystemSettingsService;
+        $academicYear = $settings->get('academic_year', '2024–2025');
+        $semester = $settings->get('current_semester', 'Second Semester');
+        $gradingPeriod = $settings->get('grading_period', 'PRELIM');
 
-        $query = Grade::with('student');
+        $query = Grade::with('student')
+            ->where(fn ($query) => $query
+                ->where('academic_year', $academicYear)
+                ->orWhereNull('academic_year'))
+            ->where(fn ($query) => $query
+                ->where('semester', $semester)
+                ->orWhereNull('semester'))
+            ->where('grading_period', $gradingPeriod);
         if ($subjectId) {
             $query->where('subject_id', $subjectId);
         }
@@ -84,12 +106,14 @@ class GradeController extends Controller
 
         $filename = 'grades-export-'.now()->format('Ymd-His').'.csv';
 
-        return response()->streamDownload(function () use ($grades) {
+        return response()->streamDownload(function () use ($grades, $semester, $gradingPeriod) {
             $output = fopen('php://output', 'w');
-            fputcsv($output, ['Student Name', 'Subject', 'Quiz', 'Assignment', 'Exam', 'Average', 'Remarks']);
+            fputcsv($output, ['Semester', 'Grading Period', 'Student Name', 'Subject', 'Quiz', 'Assignment', 'Exam', 'Average', 'Remarks']);
 
             foreach ($grades as $grade) {
                 fputcsv($output, [
+                    $semester,
+                    $gradingPeriod,
                     $grade->student ? $grade->student->name : 'Unknown',
                     $grade->subject_id,
                     $grade->quiz,

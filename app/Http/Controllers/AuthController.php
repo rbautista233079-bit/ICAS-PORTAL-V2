@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditTrail;
 use App\Models\User;
+use App\Services\SystemSettingsService;
+use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -150,18 +152,20 @@ class AuthController extends Controller
             'role' => ['required', 'in:student,faculty,admin'],
         ]);
 
-        $throttleKey = Str::lower($request->input('email')).'|'.$request->ip();
+        $selectedRole = $credentials['role'];
+        $throttleKey = $selectedRole === 'student'
+            ? 'login:student:'.Str::lower($credentials['email'])
+            : null;
 
-        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+        if ($throttleKey !== null && RateLimiter::tooManyAttempts($throttleKey, 3)) {
             $seconds = RateLimiter::availableIn($throttleKey);
-            $minutes = ceil($seconds / 60);
+            $minutes = max(1, (int) ceil($seconds / 60));
 
             return back()->withErrors([
                 'email' => "Account locked due to too many failed attempts. Please try again in {$minutes} minute(s).",
             ])->with('lockout_seconds', $seconds)->withInput();
         }
 
-        $selectedRole = $credentials['role'];
         unset($credentials['role']);
 
         if (Auth::attempt($credentials)) {
@@ -169,11 +173,32 @@ class AuthController extends Controller
 
             if ($user->role !== $selectedRole) {
                 Auth::logout();
-                RateLimiter::hit($throttleKey, 1800); // 30 mins
 
                 return back()->withErrors([
                     'email' => 'This account is a '.ucfirst($user->role).', not a '.ucfirst($selectedRole).'.',
                 ])->withInput();
+            }
+
+            if (in_array($user->role, ['student', 'faculty'], true)) {
+                $settings = new SystemSettingsService;
+                $enabled = (string) $settings->get('maintenance_enabled', '0');
+                $untilRaw = $settings->get('maintenance_until');
+                $expired = false;
+
+                if ($enabled === '1' && $untilRaw) {
+                    $expired = Carbon::now()->greaterThan(Carbon::parse($untilRaw));
+                }
+
+                if ($enabled === '1' && $expired) {
+                    $settings->set('maintenance_enabled', '0', 'boolean');
+                    $settings->set('maintenance_until', '', 'string');
+                }
+
+                if ($enabled === '1' && ! $expired) {
+                    Auth::logout();
+
+                    return redirect()->route('maintenance.notice');
+                }
             }
 
             if ($user->status === 'inactive') {
@@ -187,9 +212,9 @@ class AuthController extends Controller
             if ($user->role === 'student' && $user->status === 'pending') {
                 Auth::logout();
                 $hasRequiredProof = false;
-                     if ($user->enrollment_type === 'New Student' && $user->receipt_proof) {
+                if ($user->enrollment_type === 'New Student' && $user->receipt_proof) {
                     $hasRequiredProof = true;
-                     } elseif ($user->enrollment_type === 'Old Student' && $user->student_id_proof) {
+                } elseif ($user->enrollment_type === 'Old Student' && $user->student_id_proof) {
                     $hasRequiredProof = true;
                 }
 
@@ -206,8 +231,10 @@ class AuthController extends Controller
                     ->withInput();
             }
 
-            // Success: clear rate limiter
-            RateLimiter::clear($throttleKey);
+            // Success: clear student-specific rate limiter
+            if ($throttleKey !== null) {
+                RateLimiter::clear($throttleKey);
+            }
             $request->session()->regenerate();
 
             AuditTrail::log('Login', 'Auth', 'User logged in as '.$selectedRole);
@@ -236,8 +263,10 @@ class AuthController extends Controller
             };
         }
 
-        // Failure: increment attempts
-        RateLimiter::hit($throttleKey, 1800);
+        // Failure: increment student-specific attempts only
+        if ($throttleKey !== null) {
+            RateLimiter::hit($throttleKey, 1800);
+        }
 
         return back()->withErrors(['email' => 'Invalid email or password.'])->withInput();
     }
@@ -313,11 +342,11 @@ class AuthController extends Controller
 
             if ($request->hasFile('receipt_proof')) {
                 $file = $request->file('receipt_proof');
-                    if ($user->receipt_proof) {
-                        Storage::disk('local')->delete($user->receipt_proof);
-                    }
-                    $user->receipt_proof = $file->store('verifications/receipt-proofs', 'local');
-                    $user->receipt_proof_mime = $file->getMimeType();
+                if ($user->receipt_proof) {
+                    Storage::disk('local')->delete($user->receipt_proof);
+                }
+                $user->receipt_proof = $file->store('verifications/receipt-proofs', 'local');
+                $user->receipt_proof_mime = $file->getMimeType();
             }
         } elseif ($user->enrollment_type === 'Old Student') {
             $request->validate([
@@ -326,11 +355,11 @@ class AuthController extends Controller
 
             if ($request->hasFile('student_id_proof')) {
                 $file = $request->file('student_id_proof');
-                    if ($user->student_id_proof) {
-                        Storage::disk('local')->delete($user->student_id_proof);
-                    }
-                    $user->student_id_proof = $file->store('verifications/student-ids', 'local');
-                    $user->student_id_proof_mime = $file->getMimeType();
+                if ($user->student_id_proof) {
+                    Storage::disk('local')->delete($user->student_id_proof);
+                }
+                $user->student_id_proof = $file->store('verifications/student-ids', 'local');
+                $user->student_id_proof_mime = $file->getMimeType();
             }
         } else {
             return redirect()->route('login')->withErrors(['email' => 'Invalid enrollment type.']);

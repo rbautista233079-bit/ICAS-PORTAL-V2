@@ -174,28 +174,35 @@ class FacultyController extends Controller
             ['label' => 'Late', 'value' => (string) $lateRecords],
         ];
 
+        $subjectMap = $facultyClassrooms
+            ->mapWithKeys(fn (Classroom $classroom): array => [
+                $classroom->code => $classroom->name.' ('.$classroom->code.')',
+            ])
+            ->all();
+
         $records = (clone $baseQuery)
             ->orderByDesc('attendance_date')
             ->orderBy('student_name')
             ->get()
-            ->map(function (FacultyAttendanceRecord $record): array {
+            ->map(function (FacultyAttendanceRecord $record) use ($subjectMap): array {
+                $subjectCode = (string) ($record->subject_code ?: $record->student_class);
+
                 return [
                     'id' => $record->id,
                     'initials' => $this->extractInitials($record->student_name),
                     'name' => $record->student_name,
-                    'class' => $record->student_class,
+                    'subject' => $subjectMap[$subjectCode] ?? $subjectCode,
                     'date' => $record->attendance_date->format('n/j/Y'),
                     'status' => $record->status,
                 ];
             })
             ->all();
 
-        $classOptions = FacultyAttendanceRecord::query()
-            ->where('faculty_user_id', Auth::id())
-            ->select('student_class')
-            ->distinct()
-            ->orderBy('student_class')
-            ->pluck('student_class')
+        $subjectOptions = $facultyClassrooms
+            ->map(fn (Classroom $classroom): array => [
+                'value' => $classroom->code,
+                'label' => $classroom->name.' ('.$classroom->code.')',
+            ])
             ->all();
 
         $gradeSubjects = $facultyClassrooms
@@ -211,6 +218,9 @@ class FacultyController extends Controller
         $activeClassroom = $facultyClassrooms->where('code', $gradeSubjectFilter)->first();
         $activeCriteria = $activeClassroom ? $activeClassroom->gradingCriteria : collect();
 
+        $settings = new SystemSettingsService;
+        $gradingPeriod = $settings->get('grading_period', 'PRELIM');
+
         $studentsWithGrades = collect();
         if ($tab === 'grades' && $activeClassroom) {
             $studentsQuery = $activeClassroom->students()->select('users.id', 'users.name');
@@ -219,7 +229,14 @@ class FacultyController extends Controller
             }
             $students = $studentsQuery->get();
 
-            $gradeQuery = Grade::query();
+            $gradeQuery = Grade::query()
+                ->where(fn ($query) => $query
+                    ->where('academic_year', $settings->get('academic_year', '2024–2025'))
+                    ->orWhereNull('academic_year'))
+                ->where(fn ($query) => $query
+                    ->where('semester', $settings->get('current_semester', 'Second Semester'))
+                    ->orWhereNull('semester'))
+                ->where('grading_period', $gradingPeriod);
             if ($gradeSubjectFilter) {
                 $gradeQuery->where('subject_id', $gradeSubjectFilter);
             }
@@ -243,7 +260,7 @@ class FacultyController extends Controller
             }
         }
 
-        return view('faculty.grades', compact('summary', 'records', 'filters', 'activeFilters', 'classOptions', 'tab', 'studentsWithGrades', 'gradeSubjects', 'gradeSubjectFilter', 'gradeSearch', 'facultyClassrooms', 'activeCriteria', 'activeClassroom'));
+        return view('faculty.grades', compact('summary', 'records', 'filters', 'activeFilters', 'subjectOptions', 'tab', 'studentsWithGrades', 'gradeSubjects', 'gradeSubjectFilter', 'gradeSearch', 'facultyClassrooms', 'activeCriteria', 'activeClassroom'));
     }
 
     public function storeAttendanceRecord(StoreFacultyAttendanceRecordRequest $request): RedirectResponse
@@ -359,9 +376,14 @@ class FacultyController extends Controller
             fputcsv($output, ['Student Name', 'Subject', 'Course/Strand', 'Academic Level', 'Date', 'Status']);
 
             foreach ($records as $record) {
+                $subjectCode = (string) ($record->subject_code ?: $record->student_class);
+                $subjectLabel = $record->student_class && $record->student_class !== ''
+                    ? $this->resolveAttendanceSubjectLabel($record->student_class, $record->subject_code)
+                    : $subjectCode;
+
                 fputcsv($output, [
                     $record->student_name,
-                    $record->subject_code ?? $record->student_class,
+                    $subjectLabel,
                     $record->course_strand,
                     $record->academic_level,
                     $record->attendance_date?->format('Y-m-d') ?? '',
@@ -528,6 +550,21 @@ class FacultyController extends Controller
             ->all();
 
         return view('faculty.enrollments', compact('enrollments', 'summary', 'tab', 'courseFilter', 'courseOptions'));
+    }
+
+    private function resolveAttendanceSubjectLabel(string $studentClass, ?string $subjectCode): string
+    {
+        $code = $subjectCode ?: $studentClass;
+
+        $classroom = Classroom::query()
+            ->where('code', $code)
+            ->first();
+
+        if ($classroom) {
+            return $classroom->name.' ('.$classroom->code.')';
+        }
+
+        return $code;
     }
 
     private function extractInitials(string $name): string

@@ -55,6 +55,8 @@ it('allows admins to download the grade generator csv', function () {
     $firstDataRow = str_getcsv((string) ($rows[1] ?? ''));
 
     expect($header)->toBe([
+        'Semester',
+        'Grading Period',
         'Student Name',
         'Student Email',
         'Course/Strand',

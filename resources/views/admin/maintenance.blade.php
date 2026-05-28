@@ -16,6 +16,32 @@
         <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">{{ $errors->first() }}</div>
     @endif
 
+    {{-- Portal Maintenance Mode --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900">Portal Maintenance Mode</h2>
+                <p class="mt-1 text-sm text-slate-500">Restricts Student and Faculty portals only. Admin access stays open.</p>
+                <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-1 font-bold {{ $maintenanceEnabled ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
+                        {{ $maintenanceEnabled ? 'Enabled' : 'Disabled' }}
+                    </span>
+                    <span>
+                        Auto-off:
+                        {{ $maintenanceEnabled && $maintenanceUntil ? $maintenanceUntil->format('M j, Y g:i A') : '1 week from enablement' }}
+                    </span>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('admin.maintenance.mode') }}">
+                @csrf
+                <input type="hidden" name="enabled" value="{{ $maintenanceEnabled ? '0' : '1' }}">
+                <button type="submit" class="inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-bold text-white transition {{ $maintenanceEnabled ? 'bg-slate-900 hover:bg-slate-800' : 'bg-amber-600 hover:bg-amber-700' }}">
+                    {{ $maintenanceEnabled ? 'Turn Off Maintenance' : 'Turn On Maintenance' }}
+                </button>
+            </form>
+        </div>
+    </section>
+
     {{-- System Health Cards --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

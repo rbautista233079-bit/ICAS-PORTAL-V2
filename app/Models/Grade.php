@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\AdminModelChanged;
 use Illuminate\Database\Eloquent\Model;
 
 class Grade extends Model
@@ -9,12 +10,15 @@ class Grade extends Model
     protected $fillable = [
         'student_id',
         'subject_id',
+        'academic_year',
+        'semester',
         'quiz',
         'assignment',
         'exam',
         'component_scores',
         'average',
         'remarks',
+        'grading_period',
     ];
 
     protected $casts = [
@@ -29,12 +33,12 @@ class Grade extends Model
     protected static function booted(): void
     {
         static::created(function ($model) {
-            event(new \App\Events\AdminModelChanged('grade', $model->id, 'created'));
+            event(new AdminModelChanged('grade', $model->id, 'created'));
         });
 
         // avoid noisy updates for grade edits; only broadcast create/delete
         static::deleted(function ($model) {
-            event(new \App\Events\AdminModelChanged('grade', $model->id, 'deleted'));
+            event(new AdminModelChanged('grade', $model->id, 'deleted'));
         });
     }
 }

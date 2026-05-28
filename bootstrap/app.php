@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckForcePasswordChange;
+use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnsureClassroomActive;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'classroom.active' => EnsureClassroomActive::class,
             'force.password.change' => CheckForcePasswordChange::class,
+            'maintenance.mode' => EnforceMaintenanceMode::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
