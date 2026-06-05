@@ -254,6 +254,20 @@
         }
         .pw-toggle:focus { outline: 2px solid rgba(255,255,255,0.18); }
 
+        select.auth-input {
+            color: #1f2937;
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        select.auth-input option {
+            color: #1f2937;
+            background: #ffffff;
+        }
+
+        select.auth-input:focus {
+            color: #1f2937;
+        }
+
         body.page-enter {
             opacity: 0;
             transform: translate3d(0, 16px, 0) scale(0.995);
