@@ -24,7 +24,7 @@ class ClassroomStudentsExport implements FromCollection, ShouldAutoSize, WithHea
 
     public function headings(): array
     {
-        return ['Student Number', 'Full Name', 'Academic Level', 'Enrollment Status', 'Email', 'Enrolled At'];
+        return ['Student Number', 'Full Name', 'Academic Level', 'Email'];
     }
 
     public function map($student): array
@@ -33,9 +33,7 @@ class ClassroomStudentsExport implements FromCollection, ShouldAutoSize, WithHea
             $student->student_number ?? '',
             $student->name ?? '',
             $student->academic_level ?? '',
-            $student->pivot->enrollment_status ?? '',
             $student->email ?? '',
-            $student->pivot->enrolled_at ?? '',
         ];
     }
 }

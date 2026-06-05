@@ -54,6 +54,20 @@ class GradeController extends Controller
 
             $remarks = $average >= GradingService::PASSING_GRADE ? 'Pass' : 'Fail';
 
+            $existingGrade = Grade::where([
+                'student_id' => $data['student_id'],
+                'subject_id' => $data['subject_id'],
+                'academic_year' => $academicYear,
+                'semester' => $semester,
+                'grading_period' => $gradingPeriod,
+            ])->first();
+
+            if ($existingGrade && $existingGrade->is_overridden) {
+                // Skip overridden grades to preserve Admin edits
+                $skipped[] = $data['subject_id'].' (Overridden by Admin)';
+                continue;
+            }
+
             Grade::updateOrCreate(
                 [
                     'student_id' => $data['student_id'],
@@ -73,6 +87,13 @@ class GradeController extends Controller
                     'exam' => $components['exam'] ?? ($data['exam'] ?? 0),
                 ]
             );
+
+            // Keep legacy StudentModuleRecord in sync for the Student portal
+            \App\Models\StudentModuleRecord::where('user_id', $data['student_id'])
+                ->where('module_code', $data['subject_id'])
+                ->where('academic_year', $academicYear)
+                ->where('semester', $semester)
+                ->update(['grade_percent' => $average]);
         }
 
         $message = 'Grades saved successfully!';

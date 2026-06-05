@@ -46,7 +46,6 @@
                             <th class="px-5 py-3.5 font-semibold text-slate-500 text-xs uppercase">Student Number</th>
                             <th class="px-5 py-3.5 font-semibold text-slate-500 text-xs uppercase">Full Name</th>
                             <th class="px-5 py-3.5 font-semibold text-slate-500 text-xs uppercase">Academic Level</th>
-                            <th class="px-5 py-3.5 font-semibold text-slate-500 text-xs uppercase">Enrollment Status</th>
                             <th class="px-5 py-3.5 font-semibold text-slate-500 text-xs uppercase">Email</th>
                         </tr>
                     </thead>
@@ -56,9 +55,6 @@
                                 <td class="px-5 py-4 text-slate-700">{{ $student->student_number ?? '—' }}</td>
                                 <td class="px-5 py-4 font-medium text-slate-900">{{ $student->name }}</td>
                                 <td class="px-5 py-4 text-slate-600">{{ $student->academic_level ?? '—' }}</td>
-                                <td class="px-5 py-4">
-                                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize {{ ($student->pivot->enrollment_status ?? '') === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">{{ $student->pivot->enrollment_status ?? '—' }}</span>
-                                </td>
                                 <td class="px-5 py-4 text-slate-600">{{ $student->email }}</td>
                             </tr>
                         @endforeach

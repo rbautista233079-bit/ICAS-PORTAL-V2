@@ -45,31 +45,14 @@
 
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     @foreach($myClassrooms as $room)
-                        @php
-                            $statusBadge = match($room['enrollment_status'] ?? 'pending') {
-                                'enrolled' => ['bg' => 'bg-emerald-100', 'text' => 'text-emerald-700', 'label' => 'Enrolled'],
-                                'dropped'  => ['bg' => 'bg-rose-100',    'text' => 'text-rose-700',    'label' => 'Dropped'],
-                                default    => ['bg' => 'bg-amber-100',   'text' => 'text-amber-700',   'label' => 'Pending'],
-                            };
-                        @endphp
-                        <article class="rounded-3xl border border-emerald-200 bg-emerald-50/40 p-5 flex flex-col relative">
+                        <article class="rounded-3xl border border-emerald-200 bg-emerald-50/40 p-5 flex flex-col relative group hover:border-green-400 hover:shadow-md transition-all">
                             <div class="flex items-start justify-between gap-3 mb-3">
                                 <div class="h-10 w-10 rounded-2xl bg-green-600 text-white grid place-items-center flex-shrink-0">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                                 </div>
-                                <span class="inline-flex rounded-full {{ $statusBadge['bg'] }} {{ $statusBadge['text'] }} px-3 py-1 text-xs font-bold flex-shrink-0">
-                                    {{ $statusBadge['label'] }}
+                                <span class="inline-flex rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-bold flex-shrink-0">
+                                    Enrolled
                                 </span>
-                                <div class="relative">
-                                    <button onclick="document.getElementById('menu-{{ $room['id'] }}').classList.toggle('hidden')" class="rounded-full p-1.5 text-slate-600 hover:bg-white/30">⋯</button>
-                                    <div id="menu-{{ $room['id'] }}" class="hidden absolute right-0 mt-2 w-44 rounded-xl bg-white border border-slate-100 shadow-lg z-50">
-                                        <form method="POST" action="{{ route('student.classrooms.unenroll', $room['id']) }}" class="p-3" onsubmit="return confirm('Leave this classroom?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="w-full text-left text-sm text-rose-600 font-semibold">Leave Classroom</button>
-                                        </form>
-                                    </div>
-                                </div>
                             </div>
 
                             <h4 class="text-base font-bold text-slate-900">{{ $room['name'] }}</h4>
@@ -93,6 +76,20 @@
                                     <p class="text-xs text-slate-500 mt-0.5">Current Grade</p>
                                 </div>
                             @endif
+
+                            <div class="mt-auto pt-4 flex items-center gap-2">
+                                <a href="{{ route('student.classrooms.show', $room['id']) }}" class="flex-1 rounded-2xl bg-green-600 px-4 py-2 text-sm font-bold text-white hover:bg-green-700 transition text-center flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Enter Classroom
+                                </a>
+                                <form method="POST" action="{{ route('student.classrooms.unenroll', $room['id']) }}" onsubmit="return confirm('Leave this classroom?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="rounded-2xl border border-rose-200 text-rose-500 px-3 py-2 text-xs font-semibold hover:bg-rose-50 transition" title="Leave Classroom">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                                    </button>
+                                </form>
+                            </div>
                         </article>
                     @endforeach
                 </div>

@@ -421,7 +421,18 @@ class AdminController extends Controller
             ->get(['id', 'name'])
             ->all();
 
-        return view('admin.attendance', compact('summary', 'records', 'filters', 'activeFilters', 'courseOptions', 'facultyOptions', 'subjectOptions', 'strandOptions'));
+        // Dynamic academic level options from actual student data
+        $academicLevelOptions = User::query()
+            ->where('role', 'student')
+            ->whereNotNull('academic_level')
+            ->where('academic_level', '!=', '')
+            ->select('academic_level')
+            ->distinct()
+            ->orderBy('academic_level')
+            ->pluck('academic_level')
+            ->all();
+
+        return view('admin.attendance', compact('summary', 'records', 'filters', 'activeFilters', 'courseOptions', 'facultyOptions', 'subjectOptions', 'strandOptions', 'academicLevelOptions'));
     }
 
     public function exportAttendance(Request $request)
@@ -725,7 +736,15 @@ class AdminController extends Controller
         $grade->update([
             'average' => $newGrade,
             'remarks' => $newGrade >= GradingService::PASSING_GRADE ? 'Pass' : 'Fail',
+            'is_overridden' => true,
         ]);
+
+        // Keep legacy StudentModuleRecord in sync for the Student portal
+        \App\Models\StudentModuleRecord::where('user_id', $grade->student_id)
+            ->where('module_code', $grade->subject_id)
+            ->where('academic_year', $grade->academic_year)
+            ->where('semester', $grade->semester)
+            ->update(['grade_percent' => $newGrade]);
 
         AuditTrail::create([
             'user_id' => auth()->id(),

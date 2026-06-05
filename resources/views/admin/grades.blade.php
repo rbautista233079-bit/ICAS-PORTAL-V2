@@ -185,9 +185,12 @@
                         <td class="px-5 py-3.5 text-slate-400">{{ $grade->student->academic_level ?? 'N/A' }}</td>
                         <td class="px-5 py-3.5 text-slate-700">{{ $classroom?->name ?? $grade->subject_id }} <span class="text-xs text-slate-400">({{ $grade->subject_id }})</span></td>
                         <td class="px-5 py-3.5"><span class="font-bold text-slate-900">{{ number_format((float) $grade->average, 2) }}%</span></td>
-                        <td class="px-5 py-3.5">
+                        <td class="px-5 py-3.5 flex flex-wrap gap-1">
                             @if($grade->average !== null)
                                 <span class="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">Recorded</span>
+                                @if($grade->is_overridden)
+                                    <span class="bg-purple-100 text-purple-700 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded" title="Manually overridden by Admin">Overridden</span>
+                                @endif
                             @else
                                 <span class="bg-amber-100 text-amber-700 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">Pending</span>
                             @endif

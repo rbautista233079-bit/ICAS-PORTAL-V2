@@ -21,47 +21,44 @@
                     <p class="mt-2 text-sm text-slate-500">Track attendance activity and monitor trends by class, date range, and faculty.</p>
                 </div>
 
-                <form method="GET" action="{{ route('admin.attendance') }}" class="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1.2fr_1fr_1fr_auto_auto] xl:items-center">
+                <form method="GET" action="{{ route('admin.attendance') }}" class="flex flex-wrap gap-3 items-end w-full xl:w-auto">
                     <input
                         type="text"
                         name="search"
                         value="{{ $filters['search'] }}"
                         placeholder="Search student..."
-                        class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none"
+                        class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none min-w-[160px] flex-shrink-0"
                     />
 
-                    <select name="status" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
+                    <select name="status" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
                         <option value="" @selected($filters['status'] === '')>All Statuses</option>
                         <option value="Present" @selected($filters['status'] === 'Present')>Present</option>
                         <option value="Absent" @selected($filters['status'] === 'Absent')>Absent</option>
                         <option value="Late" @selected($filters['status'] === 'Late')>Late</option>
                     </select>
 
-                    {{-- Class filter removed; replaced by Course and Academic Level filters --}}
-
-                    <select name="academic_level" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
+                    <select name="academic_level" id="academicLevelFilter" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
                         <option value="" @selected(($filters['academic_level'] ?? '') === '')>All Levels</option>
-                        <option value="Senior High School" @selected(($filters['academic_level'] ?? '') === 'Senior High School')>Senior High School</option>
-                        <option value="1st Year College" @selected(($filters['academic_level'] ?? '') === '1st Year College')>1st Year College</option>
-                        <option value="2nd Year College" @selected(($filters['academic_level'] ?? '') === '2nd Year College')>2nd Year College</option>
-                        <option value="3rd Year College" @selected(($filters['academic_level'] ?? '') === '3rd Year College')>3rd Year College</option>
+                        @foreach(($academicLevelOptions ?? []) as $levelOpt)
+                            <option value="{{ $levelOpt }}" @selected(($filters['academic_level'] ?? '') === $levelOpt)>{{ $levelOpt }}</option>
+                        @endforeach
                     </select>
 
-                    <select name="course" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
+                    <select name="course" id="courseFilter" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
                         <option value="" @selected(($filters['course'] ?? '') === '')>All Courses</option>
                         @foreach(($courseOptions ?? []) as $courseOpt)
                             <option value="{{ $courseOpt }}" @selected(($filters['course'] ?? '') === $courseOpt)>{{ $courseOpt }}</option>
                         @endforeach
                     </select>
 
-                    <select name="strand" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
+                    <select name="strand" id="strandFilter" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
                         <option value="" @selected(($filters['strand'] ?? '') === '')>All Strands</option>
                         @foreach(($strandOptions ?? []) as $strandOpt)
                             <option value="{{ $strandOpt }}" @selected(($filters['strand'] ?? '') === $strandOpt)>{{ $strandOpt }}</option>
                         @endforeach
                     </select>
 
-                    <select name="faculty_user_id" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
+                    <select name="faculty_user_id" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
                         <option value="" @selected($filters['faculty_user_id'] === '')>All Faculty</option>
                         @foreach($facultyOptions as $facultyOption)
                             <option value="{{ $facultyOption['id'] }}" @selected($filters['faculty_user_id'] === (string) $facultyOption['id'])>
@@ -70,7 +67,7 @@
                         @endforeach
                     </select>
 
-                    <select name="subject" class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none">
+                    <select name="subject" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
                         <option value="" @selected($filters['subject'] === '')>All Subjects</option>
                         @foreach($subjectOptions as $subjectOpt)
                             <option value="{{ $subjectOpt }}" @selected($filters['subject'] === $subjectOpt)>{{ $subjectOpt }}</option>
@@ -81,21 +78,21 @@
                         type="date"
                         name="from_date"
                         value="{{ $filters['from_date'] }}"
-                        class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700 focus:border-slate-900 focus:outline-none"
+                        class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0"
                     />
 
-                    <label class="inline-flex items-center cursor-pointer">
+                    <label class="inline-flex items-center cursor-pointer flex-shrink-0">
                         <input type="checkbox" name="history" value="1" {{ request()->has('history') ? 'checked' : '' }} class="mr-2 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
                         <span class="text-sm text-slate-700">View History</span>
                     </label>
 
-                    <button type="submit" class="rounded-3xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">Filter</button>
+                    <button type="submit" class="rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 flex-shrink-0">Filter</button>
                     @if(!empty($activeFilters))
-                        <a href="{{ route('admin.attendance') }}" class="rounded-3xl border border-slate-200 bg-white px-5 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
+                        <a href="{{ route('admin.attendance') }}" class="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50 flex-shrink-0">Clear</a>
                     @endif
                 </form>
 
-                <div class="flex items-center gap-3 mt-4 xl:mt-0">
+                <div class="flex items-center gap-3 mt-4 xl:mt-0 flex-shrink-0">
                     <div class="relative inline-block text-left">
                         <button id="attendance-export-toggle" type="button" class="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition">Export ▾</button>
                         <div id="attendance-export-menu" class="hidden absolute right-0 mt-2 w-40 rounded-xl bg-white border border-slate-100 shadow-lg z-50">
@@ -172,6 +169,38 @@
                     menu.classList.add('hidden');
                 }
             });
+
+            // Conditional Course/Strand dropdown visibility
+            var levelSelect = document.getElementById('academicLevelFilter');
+            var courseSelect = document.getElementById('courseFilter');
+            var strandSelect = document.getElementById('strandFilter');
+
+            function updateDropdownVisibility() {
+                if (!levelSelect || !courseSelect || !strandSelect) return;
+                var level = levelSelect.value;
+
+                if (level === 'Senior High School') {
+                    // Show strands, hide courses
+                    strandSelect.closest('select') && (strandSelect.style.display = '');
+                    courseSelect.style.display = 'none';
+                    courseSelect.value = '';
+                } else if (level !== '' && level !== 'Senior High School') {
+                    // College level selected — show courses, hide strands
+                    courseSelect.style.display = '';
+                    strandSelect.style.display = 'none';
+                    strandSelect.value = '';
+                } else {
+                    // All Levels — show both
+                    courseSelect.style.display = '';
+                    strandSelect.style.display = '';
+                }
+            }
+
+            if (levelSelect) {
+                levelSelect.addEventListener('change', updateDropdownVisibility);
+                updateDropdownVisibility(); // Run on page load
+            }
         })();
     </script>
 @endsection
+

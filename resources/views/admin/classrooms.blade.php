@@ -12,6 +12,7 @@
                     $colors = match($item['color']) {
                         'emerald' => ['bg' => 'bg-emerald-50', 'border' => 'border-emerald-200', 'val' => 'text-emerald-700', 'icon' => 'bg-emerald-100 text-emerald-600'],
                         'sky'     => ['bg' => 'bg-sky-50',     'border' => 'border-sky-200',     'val' => 'text-sky-700',     'icon' => 'bg-sky-100 text-sky-600'],
+                        'rose'    => ['bg' => 'bg-rose-50',    'border' => 'border-rose-200',    'val' => 'text-rose-700',    'icon' => 'bg-rose-100 text-rose-600'],
                         default   => ['bg' => 'bg-white',      'border' => 'border-slate-200',   'val' => 'text-slate-900',   'icon' => 'bg-slate-100 text-slate-600'],
                     };
                 @endphp

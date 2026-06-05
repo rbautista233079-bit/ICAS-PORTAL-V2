@@ -404,12 +404,12 @@ class ClassroomController extends Controller
 
         $totalClassrooms = Classroom::count();
         $activeClassrooms = Classroom::where('status', 'active')->count();
-        $totalStudentsEnrolled = \DB::table('classroom_students')->distinct('user_id')->count('user_id');
+        $inactiveClassrooms = Classroom::where('status', 'inactive')->count();
 
         $summary = [
             ['label' => 'Total Classrooms',    'value' => (string) $totalClassrooms,      'color' => 'slate'],
             ['label' => 'Active Classrooms',   'value' => (string) $activeClassrooms,     'color' => 'emerald'],
-            ['label' => 'Students Enrolled',   'value' => (string) $totalStudentsEnrolled, 'color' => 'sky'],
+            ['label' => 'Inactive Classrooms', 'value' => (string) $inactiveClassrooms,   'color' => 'rose'],
         ];
 
         return view('admin.classrooms', compact('classrooms', 'summary', 'statusFilter', 'search'));
@@ -592,16 +592,14 @@ class ClassroomController extends Controller
 
         $callback = function () use ($students) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Student Number', 'Full Name', 'Academic Level', 'Enrollment Status', 'Email', 'Enrolled At']);
+            fputcsv($handle, ['Student Number', 'Full Name', 'Academic Level', 'Email']);
 
             foreach ($students as $s) {
                 fputcsv($handle, [
                     $s->student_number ?? '',
                     $s->name ?? '',
                     $s->academic_level ?? '',
-                    $s->pivot->enrollment_status ?? '',
                     $s->email ?? '',
-                    $s->pivot->enrolled_at ?? '',
                 ]);
             }
 

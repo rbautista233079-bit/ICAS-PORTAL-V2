@@ -106,7 +106,33 @@ class StudentController extends Controller
         $gradingPeriod = $settings->get('grading_period', 'PRELIM');
         $finalExamStartDate = $settings->get('final_exam_start');
 
-        return view('student.schedule', compact('schedule', 'totalUnits', 'totalSubjects', 'finalExamStartDate'));
+        // Fetch school events: global events + events for enrolled classrooms
+        $enrolledClassroomIds = $student->classroomsAsStudent()->pluck('classrooms.id')->all();
+
+        $events = \App\Models\SchoolEvent::query()
+            ->where(function ($q) use ($enrolledClassroomIds) {
+                $q->where('is_global', true)
+                    ->orWhereIn('classroom_id', $enrolledClassroomIds);
+            })
+            ->where('event_date', '>=', today())
+            ->orderBy('event_date')
+            ->with('classroom:id,name,code')
+            ->get()
+            ->map(function ($event) {
+                return [
+                    'id' => $event->id,
+                    'title' => $event->title,
+                    'description' => $event->description,
+                    'date' => $event->event_date->format('M j, Y'),
+                    'date_raw' => $event->event_date->toDateString(),
+                    'is_global' => $event->is_global,
+                    'classroom_name' => $event->classroom?->name,
+                    'classroom_code' => $event->classroom?->code,
+                ];
+            })
+            ->all();
+
+        return view('student.schedule', compact('schedule', 'totalUnits', 'totalSubjects', 'finalExamStartDate', 'events'));
     }
 
     public function notifications(): View

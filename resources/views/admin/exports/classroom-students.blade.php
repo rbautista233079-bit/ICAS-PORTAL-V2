@@ -13,9 +13,7 @@
                 <th>Student Number</th>
                 <th>Full Name</th>
                 <th>Academic Level</th>
-                <th>Enrollment Status</th>
                 <th>Email</th>
-                <th>Enrolled At</th>
             </tr>
         </thead>
         <tbody>
@@ -24,9 +22,7 @@
                     <td>{{ $s->student_number ?? '' }}</td>
                     <td>{{ $s->name }}</td>
                     <td>{{ $s->academic_level ?? '' }}</td>
-                    <td>{{ $s->pivot->enrollment_status ?? '' }}</td>
                     <td>{{ $s->email }}</td>
-                    <td>{{ $s->pivot->enrolled_at ?? '' }}</td>
                 </tr>
             @endforeach
         </tbody>
