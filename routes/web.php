@@ -126,7 +126,7 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::get('/profile', [FacultyController::class, 'profile'])->name('profile');
         Route::post('/materials', [MaterialController::class, 'store'])->name('materials.store');
         // Export classroom students (faculty)
-        Route::get('/classrooms/{classroom}/export', [ClassroomController::class, 'adminExport'])->name('faculty.classrooms.export');
+        Route::get('/classrooms/{classroom}/export', [ClassroomController::class, 'adminExport'])->name('classrooms.export');
         Route::get('/schedule', [FacultyController::class, 'schedule'])->name('schedule');
 
         // Classroom grading criteria management

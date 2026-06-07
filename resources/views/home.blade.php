@@ -269,10 +269,38 @@
 
                 <div class="relative reveal-on-scroll" data-reveal="right" data-reveal-delay="90">
                     <div class="rounded-3xl border border-emerald-200 bg-white/90 p-4 shadow-[0_30px_60px_-35px_rgba(15,79,42,0.45)] backdrop-blur sm:p-5">
-                        <img src="{{ asset('images/building.jpg') }}" alt="ICAS PHILIPPINES Preview" class="h-64 w-full rounded-2xl object-cover sm:h-80">
+                        {{-- Slideshow Container --}}
+                        <div id="hero-slideshow" class="group relative overflow-hidden rounded-2xl">
+                            <div id="slideshow-track" class="flex transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]" style="transform: translateX(0%);">
+                                {{-- Slide 1: School Building --}}
+                                <div class="w-full flex-shrink-0">
+                                    <img src="{{ asset('images/building.jpg') }}" alt="ICAS Philippines — Marcos Highway Campus Building" class="h-64 w-full object-cover sm:h-80" draggable="false">
+                                </div>
+                                {{-- Slide 2: Satellite Map --}}
+                                <div class="w-full flex-shrink-0">
+                                    <img src="{{ asset('images/slide-map.png') }}" alt="ICAS Philippines — Campus Location Satellite View" class="h-64 w-full object-cover sm:h-80" draggable="false">
+                                </div>
+                            </div>
+
+                            {{-- Left / Right Arrow Buttons --}}
+                            <button id="slide-prev" type="button" aria-label="Previous slide" class="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-slate-700 shadow-lg backdrop-blur transition hover:bg-white hover:scale-110 opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                            </button>
+                            <button id="slide-next" type="button" aria-label="Next slide" class="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-slate-700 shadow-lg backdrop-blur transition hover:bg-white hover:scale-110 opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+
+                            {{-- Bullet Indicators --}}
+                            <div class="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-2">
+                                <button type="button" data-slide="0" aria-label="Go to slide 1" class="slide-dot h-2.5 w-2.5 rounded-full bg-white shadow transition-all duration-300 ring-2 ring-white/60 scale-100 opacity-100"></button>
+                                <button type="button" data-slide="1" aria-label="Go to slide 2" class="slide-dot h-2.5 w-2.5 rounded-full bg-white/50 shadow transition-all duration-300 ring-2 ring-transparent scale-75 opacity-70"></button>
+                            </div>
+                        </div>
+
+                        {{-- Caption Area --}}
                         <div class="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                            <p class="text-xs font-bold uppercase tracking-[0.12em] text-[var(--brand-700)]">Institution Snapshot</p>
-                            <ul class="mt-2 space-y-1 text-sm font-semibold text-slate-700">
+                            <p class="text-xs font-bold uppercase tracking-[0.12em] text-[var(--brand-700)]" id="slide-caption-title">Institution Snapshot</p>
+                            <ul class="mt-2 space-y-1 text-sm font-semibold text-slate-700" id="slide-caption-list">
                                 <li>Established in the early 1990s with expansion in 1991.</li>
                                 <li>College status and growth across Metro Manila and nearby provinces.</li>
                                 <li>Community-focused and affordable education model.</li>
@@ -429,6 +457,146 @@
                     updateToggleState(nextTheme);
                 });
             }
+
+            // ── Hero Slideshow ──
+            (function () {
+                var track = document.getElementById('slideshow-track');
+                var dots = document.querySelectorAll('.slide-dot');
+                var prevBtn = document.getElementById('slide-prev');
+                var nextBtn = document.getElementById('slide-next');
+                var captionTitle = document.getElementById('slide-caption-title');
+                var captionList = document.getElementById('slide-caption-list');
+                var slideshow = document.getElementById('hero-slideshow');
+
+                if (!track || dots.length === 0) return;
+
+                var slideCount = track.children.length;
+                var currentSlide = 0;
+                var autoplayInterval = null;
+                var autoplayDelay = 5000;
+
+                var captions = [
+                    {
+                        title: 'Institution Snapshot',
+                        items: [
+                            'Established in the early 1990s with expansion in 1991.',
+                            'College status and growth across Metro Manila and nearby provinces.',
+                            'Community-focused and affordable education model.'
+                        ]
+                    },
+                    {
+                        title: 'Campus Location',
+                        items: [
+                            'Marcos Highway Branch — Buenviaje Bldg., Felix Ave. cor. Marcos Hwy.',
+                            'Strategically located near LRT-2 and major commercial areas.',
+                            'Accessible from Marikina, Pasig, and Cainta.'
+                        ]
+                    }
+                ];
+
+                function goToSlide(index) {
+                    currentSlide = ((index % slideCount) + slideCount) % slideCount;
+                    track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+
+                    dots.forEach(function (dot, i) {
+                        if (i === currentSlide) {
+                            dot.className = 'slide-dot h-2.5 w-2.5 rounded-full bg-white shadow transition-all duration-300 ring-2 ring-white/60 scale-100 opacity-100';
+                        } else {
+                            dot.className = 'slide-dot h-2.5 w-2.5 rounded-full bg-white/50 shadow transition-all duration-300 ring-2 ring-transparent scale-75 opacity-70';
+                        }
+                    });
+
+                    // Update captions with fade
+                    if (captionTitle && captionList && captions[currentSlide]) {
+                        captionTitle.style.opacity = '0';
+                        captionList.style.opacity = '0';
+                        setTimeout(function () {
+                            captionTitle.textContent = captions[currentSlide].title;
+                            captionList.innerHTML = captions[currentSlide].items.map(function (item) {
+                                return '<li>' + item + '</li>';
+                            }).join('');
+                            captionTitle.style.opacity = '1';
+                            captionList.style.opacity = '1';
+                        }, 200);
+                    }
+                }
+
+                function startAutoplay() {
+                    stopAutoplay();
+                    autoplayInterval = setInterval(function () {
+                        goToSlide(currentSlide + 1);
+                    }, autoplayDelay);
+                }
+
+                function stopAutoplay() {
+                    if (autoplayInterval) {
+                        clearInterval(autoplayInterval);
+                        autoplayInterval = null;
+                    }
+                }
+
+                // Arrow buttons
+                if (prevBtn) {
+                    prevBtn.addEventListener('click', function () {
+                        goToSlide(currentSlide - 1);
+                        startAutoplay();
+                    });
+                }
+                if (nextBtn) {
+                    nextBtn.addEventListener('click', function () {
+                        goToSlide(currentSlide + 1);
+                        startAutoplay();
+                    });
+                }
+
+                // Dot buttons
+                dots.forEach(function (dot) {
+                    dot.addEventListener('click', function () {
+                        var idx = parseInt(dot.getAttribute('data-slide'), 10);
+                        goToSlide(idx);
+                        startAutoplay();
+                    });
+                });
+
+                // Pause on hover
+                if (slideshow) {
+                    slideshow.addEventListener('mouseenter', stopAutoplay);
+                    slideshow.addEventListener('mouseleave', startAutoplay);
+                }
+
+                // Touch / Swipe support
+                var touchStartX = 0;
+                var touchEndX = 0;
+
+                if (slideshow) {
+                    slideshow.addEventListener('touchstart', function (e) {
+                        touchStartX = e.changedTouches[0].screenX;
+                    }, { passive: true });
+
+                    slideshow.addEventListener('touchend', function (e) {
+                        touchEndX = e.changedTouches[0].screenX;
+                        var diff = touchStartX - touchEndX;
+                        if (Math.abs(diff) > 50) {
+                            if (diff > 0) {
+                                goToSlide(currentSlide + 1);
+                            } else {
+                                goToSlide(currentSlide - 1);
+                            }
+                            startAutoplay();
+                        }
+                    }, { passive: true });
+                }
+
+                // Add fade transition to captions
+                if (captionTitle) {
+                    captionTitle.style.transition = 'opacity 0.2s ease';
+                }
+                if (captionList) {
+                    captionList.style.transition = 'opacity 0.2s ease';
+                }
+
+                startAutoplay();
+            })();
 
             const revealItems = Array.from(document.querySelectorAll('.reveal-on-scroll'));
 
