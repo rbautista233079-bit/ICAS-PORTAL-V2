@@ -153,9 +153,9 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::get('/attendance', [AdminController::class, 'attendance'])->name('attendance');
         Route::get('/attendance/export', [AdminController::class, 'exportAttendance'])->name('attendance.export');
         Route::get('/grades', [AdminController::class, 'grades'])->name('grades');
-        Route::patch('/grades/{moduleRecord}/verify', [AdminController::class, 'verifyGrade'])->name('grades.verify');
-        Route::patch('/grades/{moduleRecord}/update', [AdminController::class, 'updateGrade'])->name('grades.update');
-        Route::patch('/grades/{moduleRecord}/reset', [AdminController::class, 'resetGrade'])->name('grades.reset');
+        Route::patch('/grades/{grade}/verify', [AdminController::class, 'verifyGrade'])->name('grades.verify');
+        Route::patch('/grades/{grade}/update', [AdminController::class, 'updateGrade'])->name('grades.update');
+        Route::patch('/grades/{grade}/reset', [AdminController::class, 'resetGrade'])->name('grades.reset');
         Route::get('/grades/generator', [AdminController::class, 'exportGrades'])->name('grades.export');
         // Legacy enrollment management removed in favor of Subject-Code classroom system.
         Route::get('/classrooms', [ClassroomController::class, 'adminIndex'])->name('classrooms');

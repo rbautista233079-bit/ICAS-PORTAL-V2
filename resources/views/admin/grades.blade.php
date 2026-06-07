@@ -24,7 +24,6 @@
                     </label>
                     <select name="academic_level" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white" onchange="this.form.submit()">
                         <option value="">All Levels</option>
-                        <option value="Senior High School" @selected($academicLevelFilter === 'Senior High School')>Senior High</option>
                         <option value="1st Year College" @selected($academicLevelFilter === '1st Year College')>1st Year</option>
                         <option value="2nd Year College" @selected($academicLevelFilter === '2nd Year College')>2nd Year</option>
                         <option value="3rd Year College" @selected($academicLevelFilter === '3rd Year College')>3rd Year</option>
