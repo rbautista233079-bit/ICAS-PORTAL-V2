@@ -51,12 +51,7 @@
                         @endforeach
                     </select>
 
-                    <select name="strand" id="strandFilter" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
-                        <option value="" @selected(($filters['strand'] ?? '') === '')>All Strands</option>
-                        @foreach(($strandOptions ?? []) as $strandOpt)
-                            <option value="{{ $strandOpt }}" @selected(($filters['strand'] ?? '') === $strandOpt)>{{ $strandOpt }}</option>
-                        @endforeach
-                    </select>
+
 
                     <select name="faculty_user_id" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 focus:border-slate-900 focus:outline-none flex-shrink-0">
                         <option value="" @selected($filters['faculty_user_id'] === '')>All Faculty</option>
@@ -170,36 +165,7 @@
                 }
             });
 
-            // Conditional Course/Strand dropdown visibility
-            var levelSelect = document.getElementById('academicLevelFilter');
-            var courseSelect = document.getElementById('courseFilter');
-            var strandSelect = document.getElementById('strandFilter');
 
-            function updateDropdownVisibility() {
-                if (!levelSelect || !courseSelect || !strandSelect) return;
-                var level = levelSelect.value;
-
-                if (level === 'Senior High School') {
-                    // Show strands, hide courses
-                    strandSelect.closest('select') && (strandSelect.style.display = '');
-                    courseSelect.style.display = 'none';
-                    courseSelect.value = '';
-                } else if (level !== '' && level !== 'Senior High School') {
-                    // College level selected — show courses, hide strands
-                    courseSelect.style.display = '';
-                    strandSelect.style.display = 'none';
-                    strandSelect.value = '';
-                } else {
-                    // All Levels — show both
-                    courseSelect.style.display = '';
-                    strandSelect.style.display = '';
-                }
-            }
-
-            if (levelSelect) {
-                levelSelect.addEventListener('change', updateDropdownVisibility);
-                updateDropdownVisibility(); // Run on page load
-            }
         })();
     </script>
 @endsection

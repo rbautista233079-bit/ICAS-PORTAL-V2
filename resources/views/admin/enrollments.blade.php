@@ -28,7 +28,6 @@
                 @foreach($levelStats as $stat)
                     @php
                         $colors = match(true) {
-                            str_contains($stat['label'], 'Senior') => ['bg' => 'bg-violet-50', 'border' => 'border-violet-200', 'val' => 'text-violet-700', 'dot' => 'bg-violet-500'],
                             str_contains($stat['label'], '1st')    => ['bg' => 'bg-sky-50',    'border' => 'border-sky-200',    'val' => 'text-sky-700',    'dot' => 'bg-sky-500'],
                             str_contains($stat['label'], '2nd')    => ['bg' => 'bg-amber-50',  'border' => 'border-amber-200',  'val' => 'text-amber-700',  'dot' => 'bg-amber-500'],
                             default                                 => ['bg' => 'bg-emerald-50','border' => 'border-emerald-200','val' => 'text-emerald-700','dot' => 'bg-emerald-500'],

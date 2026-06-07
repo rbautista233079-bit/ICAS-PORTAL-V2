@@ -211,6 +211,13 @@
                                 <button type="button"
                                     onclick="openEditModal({{ $grade->id }}, {{ $grade->average ?? 0 }}, '{{ e($grade->student->name ?? 'Unknown') }}', '{{ e($classroom->name ?? $grade->subject_id) }}', '{{ e($grade->subject_id) }}')"
                                     class="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl hover:bg-slate-200 transition">Edit</button>
+                                @if($grade->is_overridden)
+                                <form action="{{ route('admin.grades.reset', $grade->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reset this grade to its original computed value? This will also allow the grade to be recalculated if the faculty updates component scores.')">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit" class="text-xs font-semibold bg-rose-50 text-rose-600 px-3 py-1.5 rounded-xl hover:bg-rose-100 transition">Reset</button>
+                                </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

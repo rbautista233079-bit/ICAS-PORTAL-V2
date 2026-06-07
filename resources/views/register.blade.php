@@ -496,7 +496,6 @@
                                 <option value="1st Year College" {{ old('academic_level') == '1st Year College' ? 'selected' : '' }}>1st Year College</option>
                                 <option value="2nd Year College" {{ old('academic_level') == '2nd Year College' ? 'selected' : '' }}>2nd Year College</option>
                                 <option value="3rd Year College" {{ old('academic_level') == '3rd Year College' ? 'selected' : '' }}>3rd Year College</option>
-                                <option value="4th Year College" {{ old('academic_level') == '4th Year College' ? 'selected' : '' }}>4th Year College</option>
                             </select>
                         </div>
 

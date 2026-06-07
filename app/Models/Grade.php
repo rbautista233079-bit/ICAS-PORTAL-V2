@@ -19,6 +19,9 @@ class Grade extends Model
         'average',
         'remarks',
         'grading_period',
+        'is_overridden',
+        'original_grade',
+        'override_reason',
     ];
 
     protected $casts = [

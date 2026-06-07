@@ -73,7 +73,7 @@ class AdminController extends Controller
         $pendingUsersCount = User::where('status', 'pending')->count();
 
         // Live analytics for dashboard
-        $levelStats = collect(['1st Year College', '2nd Year College', '3rd Year College', '4th Year College'])
+        $levelStats = collect(['1st Year College', '2nd Year College', '3rd Year College'])
             ->map(fn ($level) => ['label' => $level, 'count' => User::where('role', 'student')->where('academic_level', $level)->count()])
             ->all();
 
@@ -386,29 +386,14 @@ class AdminController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $courseOptions = FacultyAttendanceRecord::query()
-            ->whereNotNull('course_strand')
-            ->select('course_strand')
-            ->distinct()
-            ->orderBy('course_strand')
-            ->pluck('course_strand')
-            ->all();
+        $courseOptions = ['BSIT', 'BSHM'];
 
-        $subjectOptions = FacultyAttendanceRecord::query()
-            ->whereNotNull('subject_code')
-            ->select('subject_code')
+        $subjectOptions = \App\Models\Classroom::query()
+            ->whereNotNull('code')
+            ->select('code')
             ->distinct()
-            ->orderBy('subject_code')
-            ->pluck('subject_code')
-            ->all();
-
-        $strandOptions = FacultyAttendanceRecord::query()
-            ->where('academic_level', 'Senior High School')
-            ->whereNotNull('course_strand')
-            ->select('course_strand')
-            ->distinct()
-            ->orderBy('course_strand')
-            ->pluck('course_strand')
+            ->orderBy('code')
+            ->pluck('code')
             ->all();
 
         $facultyOptions = User::query()
@@ -428,7 +413,7 @@ class AdminController extends Controller
             ->pluck('academic_level')
             ->all();
 
-        return view('admin.attendance', compact('summary', 'records', 'filters', 'activeFilters', 'courseOptions', 'facultyOptions', 'subjectOptions', 'strandOptions', 'academicLevelOptions'));
+        return view('admin.attendance', compact('summary', 'records', 'filters', 'activeFilters', 'courseOptions', 'facultyOptions', 'subjectOptions', 'academicLevelOptions'));
     }
 
     public function exportAttendance(Request $request)
@@ -737,11 +722,19 @@ class AdminController extends Controller
         $newGrade = $validated['grade_percent'];
         $reason = $validated['reason'];
 
-        $grade->update([
+        $updateData = [
             'average' => $newGrade,
             'remarks' => $newGrade >= GradingService::PASSING_GRADE ? 'Pass' : 'Fail',
             'is_overridden' => true,
-        ]);
+            'override_reason' => $reason,
+        ];
+
+        // Save original_grade only if it hasn't been overridden yet
+        if (!$grade->is_overridden) {
+            $updateData['original_grade'] = $oldGrade;
+        }
+
+        $grade->update($updateData);
 
         // Keep legacy StudentModuleRecord in sync for the Student portal
         \App\Models\StudentModuleRecord::where('user_id', $grade->student_id)
@@ -760,6 +753,42 @@ class AdminController extends Controller
         ]);
 
         return back()->with('status', 'Grade updated and logged successfully.');
+    }
+
+    public function resetGrade(Request $request, Grade $grade): RedirectResponse
+    {
+        if (!$grade->is_overridden) {
+            return back()->with('status', 'Grade is not overridden.');
+        }
+
+        $oldGrade = $grade->average;
+        $originalGrade = $grade->original_grade;
+
+        $grade->update([
+            'average' => $originalGrade,
+            'remarks' => $originalGrade >= GradingService::PASSING_GRADE ? 'Pass' : 'Fail',
+            'is_overridden' => false,
+            'original_grade' => null,
+            'override_reason' => null,
+        ]);
+
+        // Keep legacy StudentModuleRecord in sync for the Student portal
+        \App\Models\StudentModuleRecord::where('user_id', $grade->student_id)
+            ->where('module_code', $grade->subject_id)
+            ->where('academic_year', $grade->academic_year)
+            ->where('semester', $grade->semester)
+            ->update(['grade_percent' => $originalGrade]);
+
+        AuditTrail::create([
+            'user_id' => auth()->id(),
+            'action' => 'Reset Grade Override',
+            'module' => 'Grades',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'detail' => 'Admin '.auth()->user()->name.' reset overridden grade for '.($grade->student->name ?? 'Student').' in '.$grade->subject_id." from {$oldGrade} back to computed {$originalGrade}.",
+        ]);
+
+        return back()->with('status', 'Grade override has been reset to the computed value.');
     }
 
     public function documents(Request $request): View
@@ -1012,7 +1041,6 @@ class AdminController extends Controller
 
         // Real-time analytics: students by academic level
         $levelStats = collect([
-            'Senior High School',
             '1st Year College',
             '2nd Year College',
             '3rd Year College',

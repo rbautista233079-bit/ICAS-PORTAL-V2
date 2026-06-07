@@ -162,7 +162,7 @@ class StudentBulkImportService
         if (empty($name)) $errs[] = "Line $line: Full Name is required.";
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errs[] = "Line $line: Valid Email is required.";
         
-        $validLevels = ['1st Year College', '2nd Year College', '3rd Year College', '4th Year College'];
+        $validLevels = ['1st Year College', '2nd Year College', '3rd Year College'];
         if (empty($level) || !in_array($level, $validLevels)) $errs[] = "Line $line: Valid Academic Level is required.";
 
         return ['valid' => empty($errs), 'errors' => $errs];

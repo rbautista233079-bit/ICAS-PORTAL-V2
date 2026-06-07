@@ -85,7 +85,6 @@
                                 str_contains($stat['label'], '1st') => 'bg-sky-500',
                                 str_contains($stat['label'], '2nd') => 'bg-amber-500',
                                 str_contains($stat['label'], '3rd') => 'bg-emerald-500',
-                                str_contains($stat['label'], '4th') => 'bg-violet-500',
                                 default                             => 'bg-green-500',
                             };
                         @endphp
