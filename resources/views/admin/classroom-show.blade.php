@@ -14,17 +14,6 @@
             <div class="flex items-center gap-3">
                 <div class="text-sm text-slate-600">Total students: <span class="font-bold">{{ $total }}</span></div>
 
-                <div class="relative inline-block text-left">
-                    <button id="exportToggle" type="button" class="rounded-xl bg-slate-800 px-4 py-2 text-white text-sm">Export ▾</button>
-                    <div id="exportMenu" class="hidden origin-top-right absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
-                        <div class="py-1">
-                            <a href="{{ route('admin.classrooms.export', $classroom) }}?format=csv" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Download CSV</a>
-                            <a href="{{ route('admin.classrooms.export', $classroom) }}?format=xlsx" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Download Excel</a>
-                            <a href="{{ route('admin.classrooms.export', $classroom) }}?format=pdf" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Download PDF</a>
-                        </div>
-                    </div>
-                </div>
-
                 <a href="{{ route('admin.classrooms') }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600">Back</a>
             </div>
         </div>
@@ -68,21 +57,6 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const exportToggle = document.getElementById('exportToggle');
-            const exportMenu = document.getElementById('exportMenu');
-            if (exportToggle && exportMenu) {
-                exportToggle.addEventListener('click', () => {
-                    exportMenu.classList.toggle('hidden');
-                });
-                
-                // Close when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (!exportToggle.contains(e.target) && !exportMenu.contains(e.target)) {
-                        exportMenu.classList.add('hidden');
-                    }
-                });
-            }
-
             // Poll for updated student list every 5 seconds (only if no active search)
             const searchInput = document.querySelector('input[name="q"]');
             setInterval(async function(){

@@ -177,6 +177,7 @@ Route::middleware('auth', 'force.password.change')->group(function () {
         Route::delete('/forum/{forumThread}', [AdminController::class, 'deleteForumThread'])->name('forum.delete');
         Route::get('/audit-trail', [AdminController::class, 'auditTrail'])->name('audit-trail');
         Route::get('/system-monitoring', [AdminController::class, 'systemMonitoring'])->name('system-monitoring');
+        Route::get('/system-monitoring/api', [AdminController::class, 'systemMonitoringApi'])->name('system-monitoring.api');
         Route::get('/users', [AdminController::class, 'users'])->name('users');
         Route::get('/faculty', [AdminController::class, 'facultyDirectory'])->name('faculty');
         Route::get('/faculty/{user}/show', [AdminController::class, 'facultyShow'])->name('faculty.show');

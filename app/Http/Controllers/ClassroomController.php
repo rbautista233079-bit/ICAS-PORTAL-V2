@@ -571,6 +571,8 @@ class ClassroomController extends Controller
         $format = $request->query('format', 'csv');
         $students = $classroom->students()->orderBy('name')->get();
 
+        AuditTrail::log('Export', 'Classrooms', 'Admin exported student list for classroom: '.$classroom->name.' ('.$classroom->code.') in '.strtoupper($format).' format.');
+
         if (in_array($format, ['xlsx', 'xls'], true)) {
             $filename = 'classroom-'.$classroom->code.'-students-'.date('Ymd').'.xlsx';
 

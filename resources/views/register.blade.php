@@ -493,20 +493,10 @@
                             </div>
                             <select name="academic_level" id="academic_level" class="auth-input h-12 w-full rounded-2xl py-3 pl-14 pr-4 text-sm text-white outline-none transition">
                                 <option value="" disabled {{ !old('academic_level') ? 'selected' : '' }}>Select Academic Level</option>
-                                <option value="Senior High School" {{ old('academic_level') == 'Senior High School' ? 'selected' : '' }}>Senior High School</option>
                                 <option value="1st Year College" {{ old('academic_level') == '1st Year College' ? 'selected' : '' }}>1st Year College</option>
                                 <option value="2nd Year College" {{ old('academic_level') == '2nd Year College' ? 'selected' : '' }}>2nd Year College</option>
                                 <option value="3rd Year College" {{ old('academic_level') == '3rd Year College' ? 'selected' : '' }}>3rd Year College</option>
-                            </select>
-                        </div>
-                        <div class="field-wrap relative student-only-field transition-all duration-300 ease-in-out overflow-hidden" id="strand_wrap" style="max-height:0; opacity:0; display:none;">
-                            <div class="field-icon pointer-events-none absolute inset-y-0 left-0 my-auto ml-3">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path></svg>
-                            </div>
-                            <select name="strand" id="strand" class="auth-input h-12 w-full rounded-2xl py-3 pl-14 pr-4 text-sm text-white outline-none transition">
-                                <option value="" disabled {{ !old('strand') ? 'selected' : '' }}>Select Strand</option>
-                                <option value="ICT" {{ old('strand') == 'ICT' ? 'selected' : '' }}>ICT</option>
-                                <option value="HE" {{ old('strand') == 'HE' ? 'selected' : '' }}>HE</option>
+                                <option value="4th Year College" {{ old('academic_level') == '4th Year College' ? 'selected' : '' }}>4th Year College</option>
                             </select>
                         </div>
 
@@ -572,23 +562,15 @@
         function updateAcademicContext() {
             const levelSelect = document.getElementById('academic_level');
             const courseWrap = document.getElementById('course_wrap');
-            const strandWrap = document.getElementById('strand_wrap');
             const courseSelect = document.getElementById('course');
-            const strandSelect = document.getElementById('strand');
 
             if (!levelSelect || levelSelect.value === '') {
-                hideWrap(courseWrap);
-                hideWrap(strandWrap);
+                hideWrap(courseWrap, courseSelect);
                 return;
             }
 
-            if (levelSelect.value === 'Senior High School') {
-                showWrap(strandWrap, strandSelect);
-                hideWrap(courseWrap, courseSelect);
-            } else {
-                showWrap(courseWrap, courseSelect);
-                hideWrap(strandWrap, strandSelect);
-            }
+            // For College Levels, always show course
+            showWrap(courseWrap, courseSelect);
         }
 
         function showWrap(wrap, select) {
@@ -667,24 +649,14 @@
                 registerForm.addEventListener('submit', function (ev) {
                     const role = document.getElementById('selected-role').value;
                     const level = document.getElementById('academic_level').value;
-                    const strand = document.getElementById('strand');
                     const course = document.getElementById('course');
 
                     if (role === 'student') {
-                        if (level === 'Senior High School') {
-                            if (!strand.value) {
-                                ev.preventDefault();
-                                strand.setCustomValidity('Please select a strand for Senior High School');
-                                strand.reportValidity();
-                                return;
-                            }
-                        } else {
-                            if (!course.value) {
-                                ev.preventDefault();
-                                course.setCustomValidity('Please select a course for College');
-                                course.reportValidity();
-                                return;
-                            }
+                        if (!course.value) {
+                            ev.preventDefault();
+                            course.setCustomValidity('Please select a course for College');
+                            course.reportValidity();
+                            return;
                         }
                     }
                 });

@@ -82,10 +82,11 @@
                             $total = array_sum(array_column($levelStats, 'count')) ?: 1;
                             $pct = round(($stat['count'] / $total) * 100);
                             $bar = match(true) {
-                                str_contains($stat['label'], 'Senior') => 'bg-violet-500',
-                                str_contains($stat['label'], '1st')    => 'bg-sky-500',
-                                str_contains($stat['label'], '2nd')    => 'bg-amber-500',
-                                default                                 => 'bg-emerald-500',
+                                str_contains($stat['label'], '1st') => 'bg-sky-500',
+                                str_contains($stat['label'], '2nd') => 'bg-amber-500',
+                                str_contains($stat['label'], '3rd') => 'bg-emerald-500',
+                                str_contains($stat['label'], '4th') => 'bg-violet-500',
+                                default                             => 'bg-green-500',
                             };
                         @endphp
                         <div>
@@ -96,19 +97,6 @@
                             <div class="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                                 <div class="h-full {{ $bar }} rounded-full transition-all" style="width: {{ $pct }}%"></div>
                             </div>
-
-                            @if(str_contains($stat['label'], 'Senior High School'))
-                                <div class="mt-2 flex items-center gap-4 px-1">
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span>
-                                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">ICT: {{ $strandStats['ICT'] }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-fuchsia-400"></span>
-                                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tight">HE: {{ $strandStats['HE'] }}</span>
-                                    </div>
-                                </div>
-                            @endif
                         </div>
                     @endforeach
                 </div>

@@ -73,14 +73,11 @@ class AdminController extends Controller
         $pendingUsersCount = User::where('status', 'pending')->count();
 
         // Live analytics for dashboard
-        $levelStats = collect(['Senior High School', '1st Year College', '2nd Year College', '3rd Year College'])
+        $levelStats = collect(['1st Year College', '2nd Year College', '3rd Year College', '4th Year College'])
             ->map(fn ($level) => ['label' => $level, 'count' => User::where('role', 'student')->where('academic_level', $level)->count()])
             ->all();
 
-        $strandStats = [
-            'ICT' => User::where('role', 'student')->where('academic_level', 'Senior High School')->where('strand', 'ICT')->count(),
-            'HE' => User::where('role', 'student')->where('academic_level', 'Senior High School')->where('strand', 'HE')->count(),
-        ];
+        $strandStats = []; // Removed SHS strands
 
         $courseStats = User::where('role', 'student')
             ->whereNotNull('course')
@@ -164,13 +161,12 @@ class AdminController extends Controller
                 return;
             }
 
-            $headers = ['Student Number', 'Full Name', 'Email', 'Academic Level', 'Course', 'Strand'];
+            $headers = ['Student Number', 'Full Name', 'Email', 'Academic Level', 'Course'];
             fputcsv($output, $headers);
 
             $examples = [
-                ['STU-001', 'Juan Dela Cruz', 'juan.delacruz@school.edu', '1st Year College', 'BSIT', ''],
-                ['STU-002', 'Maria Santos', 'maria.santos@school.edu', '2nd Year College', 'BSHM', ''],
-                ['STU-003', 'Carlos Reyes', 'carlos.reyes@school.edu', 'Senior High School', '', 'STEM'],
+                ['STU-001', 'Juan Dela Cruz', 'juan.delacruz@school.edu', '1st Year College', 'BSIT'],
+                ['STU-002', 'Maria Santos', 'maria.santos@school.edu', '2nd Year College', 'BSHM'],
             ];
             foreach ($examples as $row) {
                 fputcsv($output, $row);
@@ -552,13 +548,21 @@ class AdminController extends Controller
             $lowest = $records->min('average');
             $passing = $records->count() > 0 ? ($records->where('average', '>=', 75)->count() / $records->count() * 100) : 0;
 
-            $dist = [
-                'A' => $records->where('average', '>=', 90)->count(),
-                'B' => $records->whereBetween('average', [80, 89.99])->count(),
-                'C' => $records->whereBetween('average', [75, 79.99])->count(),
-                'D' => $records->whereBetween('average', [70, 74.99])->count(),
-                'F' => $records->where('average', '<', 70)->count(),
-            ];
+            $grading = new GradingService;
+            $dist = [];
+            foreach (GradingService::gradeEquivalencyTable() as $row) {
+                $dist[$row['gpa']] = 0;
+            }
+            $dist['Dropped'] = 0;
+
+            foreach ($records as $record) {
+                $gpa = $grading->toGpa((float) $record->average);
+                if ($gpa !== null && isset($dist[$gpa])) {
+                    $dist[$gpa]++;
+                } else {
+                    $dist['Dropped']++;
+                }
+            }
 
             $classroom = $classroomMap->get($code);
 
@@ -1087,12 +1091,7 @@ class AdminController extends Controller
 
     public function systemMonitoring(): View
     {
-        $serverStats = [
-            ['label' => 'CPU Usage',    'value' => 0,  'unit' => '%',  'color' => 'emerald', 'status' => 'Normal'],
-            ['label' => 'Memory Usage', 'value' => 0,  'unit' => '%',  'color' => 'amber',   'status' => 'Moderate'],
-            ['label' => 'Disk Usage',   'value' => 0,  'unit' => '%',  'color' => 'sky',     'status' => 'Normal'],
-            ['label' => 'Network I/O',  'value' => 0,  'unit' => 'MB/s', 'color' => 'violet', 'status' => 'Normal'],
-        ];
+        $serverStats = $this->gatherServerStats();
 
         $platformStats = [
             ['label' => 'Total Users',          'value' => (string) User::count(),
@@ -1133,12 +1132,265 @@ class AdminController extends Controller
             return ['month' => $label, 'students' => $students, 'faculty' => $faculty];
         })->all();
 
-        $healthChecks = [
-            ['name' => 'Database Connection',  'status' => DB::select('SELECT 1 AS ok') ? 'ok' : 'error', 'detail' => 'MySQL reachable'],
-            ['name' => 'File Storage',         'status' => is_writable(storage_path('app')) ? 'ok' : 'error', 'detail' => 'Storage writable check'],
-        ];
+        $healthChecks = $this->gatherHealthChecks();
 
         return view('admin.system-monitoring', compact('serverStats', 'platformStats', 'registrationTrend', 'healthChecks'));
+    }
+
+    /**
+     * JSON API endpoint for real-time system monitoring polling.
+     */
+    public function systemMonitoringApi(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json([
+            'serverStats'   => $this->gatherServerStats(),
+            'platformStats' => [
+                'users'       => User::count(),
+                'classrooms'  => Classroom::count(),
+                'attendance'  => FacultyAttendanceRecord::count(),
+                'documents'   => DocumentRequest::count(),
+                'forum'       => ForumThread::count(),
+            ],
+            'healthChecks'  => $this->gatherHealthChecks(),
+            'timestamp'     => now()->format('h:i:s A'),
+        ]);
+    }
+
+    /**
+     * Gather real server resource stats (CPU, Memory, Disk, PHP memory).
+     *
+     * @return array<int, array{label: string, value: int|string, unit: string, color: string, status: string, detail: string}>
+     */
+    private function gatherServerStats(): array
+    {
+        // --- CPU Usage ---
+        $cpuUsage = 0;
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows: use wmic
+            try {
+                $output = @shell_exec('wmic cpu get loadpercentage /value 2>NUL');
+                if ($output && preg_match('/LoadPercentage=(\d+)/', $output, $m)) {
+                    $cpuUsage = (int) $m[1];
+                }
+            } catch (\Throwable) {
+                $cpuUsage = 0;
+            }
+        } else {
+            // Linux/Mac: use sys_getloadavg
+            if (function_exists('sys_getloadavg')) {
+                $load = sys_getloadavg();
+                $cores = (int) @shell_exec('nproc 2>/dev/null') ?: 1;
+                $cpuUsage = min(100, (int) round(($load[0] / $cores) * 100));
+            }
+        }
+
+        // --- Memory Usage ---
+        $memUsedPercent = 0;
+        $memTotalMB = 0;
+        $memUsedMB = 0;
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            try {
+                $totalOutput = @shell_exec('wmic computersystem get TotalPhysicalMemory /value 2>NUL');
+                $freeOutput = @shell_exec('wmic OS get FreePhysicalMemory /value 2>NUL');
+                if ($totalOutput && preg_match('/TotalPhysicalMemory=(\d+)/', $totalOutput, $tm)) {
+                    $totalBytes = (float) $tm[1];
+                    $memTotalMB = round($totalBytes / 1024 / 1024);
+                }
+                if ($freeOutput && preg_match('/FreePhysicalMemory=(\d+)/', $freeOutput, $fm)) {
+                    $freeKB = (float) $fm[1];
+                    $freeMB = round($freeKB / 1024);
+                    $memUsedMB = $memTotalMB - $freeMB;
+                    $memUsedPercent = $memTotalMB > 0 ? (int) round(($memUsedMB / $memTotalMB) * 100) : 0;
+                }
+            } catch (\Throwable) {
+                $memUsedPercent = 0;
+            }
+        } else {
+            // Linux: read /proc/meminfo
+            try {
+                $meminfo = @file_get_contents('/proc/meminfo');
+                if ($meminfo) {
+                    preg_match('/MemTotal:\s+(\d+)/', $meminfo, $total);
+                    preg_match('/MemAvailable:\s+(\d+)/', $meminfo, $avail);
+                    if (!empty($total[1]) && !empty($avail[1])) {
+                        $memTotalMB = round((int) $total[1] / 1024);
+                        $memUsedMB = $memTotalMB - round((int) $avail[1] / 1024);
+                        $memUsedPercent = (int) round(($memUsedMB / $memTotalMB) * 100);
+                    }
+                }
+            } catch (\Throwable) {
+                $memUsedPercent = 0;
+            }
+        }
+
+        // --- Disk Usage ---
+        $diskTotal = @disk_total_space(base_path());
+        $diskFree = @disk_free_space(base_path());
+        $diskUsedPercent = 0;
+        $diskTotalGB = 0;
+        $diskUsedGB = 0;
+        if ($diskTotal && $diskTotal > 0) {
+            $diskTotalGB = round($diskTotal / 1024 / 1024 / 1024, 1);
+            $diskUsedGB = round(($diskTotal - $diskFree) / 1024 / 1024 / 1024, 1);
+            $diskUsedPercent = (int) round((($diskTotal - $diskFree) / $diskTotal) * 100);
+        }
+
+        // --- PHP Memory ---
+        $phpMemMB = round(memory_get_usage(true) / 1024 / 1024, 1);
+        $phpMemPeakMB = round(memory_get_peak_usage(true) / 1024 / 1024, 1);
+        $phpMemLimit = ini_get('memory_limit');
+
+        // --- Uptime ---
+        $uptimeStr = 'Unknown';
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            try {
+                $bootOutput = @shell_exec('wmic os get LastBootUpTime /value 2>NUL');
+                if ($bootOutput && preg_match('/LastBootUpTime=(\d{14})/', $bootOutput, $bm)) {
+                    $bootTime = Carbon::createFromFormat('YmdHis', $bm[1]);
+                    $diff = $bootTime->diff(Carbon::now());
+                    $parts = [];
+                    if ($diff->d > 0) $parts[] = $diff->d.'d';
+                    if ($diff->h > 0) $parts[] = $diff->h.'h';
+                    $parts[] = $diff->i.'m';
+                    $uptimeStr = implode(' ', $parts);
+                }
+            } catch (\Throwable) {
+                $uptimeStr = 'Unknown';
+            }
+        } else {
+            try {
+                $uptime = @file_get_contents('/proc/uptime');
+                if ($uptime) {
+                    $seconds = (int) explode(' ', $uptime)[0];
+                    $days = intdiv($seconds, 86400);
+                    $hours = intdiv($seconds % 86400, 3600);
+                    $mins = intdiv($seconds % 3600, 60);
+                    $parts = [];
+                    if ($days > 0) $parts[] = $days.'d';
+                    if ($hours > 0) $parts[] = $hours.'h';
+                    $parts[] = $mins.'m';
+                    $uptimeStr = implode(' ', $parts);
+                }
+            } catch (\Throwable) {
+                $uptimeStr = 'Unknown';
+            }
+        }
+
+        $cpuColor = $cpuUsage < 50 ? 'emerald' : ($cpuUsage < 80 ? 'amber' : 'rose');
+        $cpuStatus = $cpuUsage < 50 ? 'Normal' : ($cpuUsage < 80 ? 'Moderate' : 'High');
+
+        $memColor = $memUsedPercent < 60 ? 'emerald' : ($memUsedPercent < 85 ? 'amber' : 'rose');
+        $memStatus = $memUsedPercent < 60 ? 'Normal' : ($memUsedPercent < 85 ? 'Moderate' : 'High');
+
+        $diskColor = $diskUsedPercent < 70 ? 'sky' : ($diskUsedPercent < 90 ? 'amber' : 'rose');
+        $diskStatus = $diskUsedPercent < 70 ? 'Healthy' : ($diskUsedPercent < 90 ? 'Warning' : 'Critical');
+
+        return [
+            [
+                'label'  => 'CPU Usage',
+                'value'  => $cpuUsage,
+                'unit'   => '%',
+                'color'  => $cpuColor,
+                'status' => $cpuStatus,
+                'detail' => PHP_OS.' · '.php_uname('m'),
+            ],
+            [
+                'label'  => 'Memory Usage',
+                'value'  => $memUsedPercent,
+                'unit'   => '%',
+                'color'  => $memColor,
+                'status' => $memStatus,
+                'detail' => $memUsedMB.' / '.$memTotalMB.' MB used',
+            ],
+            [
+                'label'  => 'Disk Usage',
+                'value'  => $diskUsedPercent,
+                'unit'   => '%',
+                'color'  => $diskColor,
+                'status' => $diskStatus,
+                'detail' => $diskUsedGB.' / '.$diskTotalGB.' GB used',
+            ],
+            [
+                'label'  => 'PHP Memory',
+                'value'  => $phpMemMB,
+                'unit'   => 'MB',
+                'color'  => 'violet',
+                'status' => 'Limit: '.$phpMemLimit,
+                'detail' => 'Peak: '.$phpMemPeakMB.' MB',
+            ],
+            [
+                'label'  => 'System Uptime',
+                'value'  => $uptimeStr,
+                'unit'   => '',
+                'color'  => 'emerald',
+                'status' => 'Online',
+                'detail' => 'Since last boot',
+            ],
+            [
+                'label'  => 'PHP Version',
+                'value'  => PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION,
+                'unit'   => '',
+                'color'  => 'sky',
+                'status' => 'v'.PHP_VERSION,
+                'detail' => php_sapi_name(),
+            ],
+        ];
+    }
+
+    /**
+     * Gather system health check results.
+     *
+     * @return array<int, array{name: string, status: string, detail: string}>
+     */
+    private function gatherHealthChecks(): array
+    {
+        // Database check
+        $dbStatus = 'error';
+        $dbDetail = 'Connection failed';
+        try {
+            DB::select('SELECT 1 AS ok');
+            $dbStatus = 'ok';
+            $dbDetail = 'MySQL reachable · '.DB::connection()->getDatabaseName();
+        } catch (\Throwable $e) {
+            $dbDetail = 'MySQL error: '.class_basename($e);
+        }
+
+        // Storage check
+        $storageStatus = is_writable(storage_path('app')) ? 'ok' : 'error';
+        $storageFree = @disk_free_space(storage_path('app'));
+        $storageDetail = $storageStatus === 'ok'
+            ? 'Writable · '.($storageFree ? round($storageFree / 1024 / 1024 / 1024, 1).' GB free' : 'OK')
+            : 'Storage directory not writable';
+
+        // Cache check
+        $cacheStatus = 'ok';
+        $cacheDetail = 'Cache driver: '.config('cache.default');
+        try {
+            \Illuminate\Support\Facades\Cache::put('_health_check', true, 5);
+            if (!\Illuminate\Support\Facades\Cache::get('_health_check')) {
+                $cacheStatus = 'error';
+                $cacheDetail = 'Cache read failed';
+            }
+        } catch (\Throwable) {
+            $cacheStatus = 'error';
+            $cacheDetail = 'Cache unavailable';
+        }
+
+        // Session check
+        $sessionStatus = 'ok';
+        $sessionDetail = 'Driver: '.config('session.driver');
+
+        // App environment
+        $envStatus = app()->environment('production') ? 'ok' : 'warning';
+        $envDetail = 'Environment: '.app()->environment().' · Debug: '.(config('app.debug') ? 'ON' : 'OFF');
+
+        return [
+            ['name' => 'Database Connection',  'status' => $dbStatus,      'detail' => $dbDetail],
+            ['name' => 'File Storage',         'status' => $storageStatus, 'detail' => $storageDetail],
+            ['name' => 'Cache System',         'status' => $cacheStatus,   'detail' => $cacheDetail],
+            ['name' => 'Session Handler',      'status' => $sessionStatus, 'detail' => $sessionDetail],
+            ['name' => 'App Environment',      'status' => $envStatus,     'detail' => $envDetail],
+        ];
     }
 
     /**

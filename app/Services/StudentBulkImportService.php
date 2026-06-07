@@ -36,7 +36,7 @@ class StudentBulkImportService
         // Read header row
         $header = fgetcsv($stream);
 
-        $studentColumns = ['Student Number', 'Full Name', 'Email', 'Academic Level', 'Course', 'Strand'];
+        $studentColumns = ['Student Number', 'Full Name', 'Email', 'Academic Level', 'Course'];
         $facultyColumns = ['Faculty Unique Number', 'Full Name', 'Email', 'Department'];
         $adminColumns = ['Admin unique number', 'Full Name', 'Email', 'Department'];
 
@@ -71,7 +71,7 @@ class StudentBulkImportService
             }
 
             if ($type === 'student') {
-                [$number, $name, $email, $level, $course, $strand] = array_pad($row, 6, '');
+                [$number, $name, $email, $level, $course] = array_pad($row, 5, '');
                 $validation = $this->validateStudent($number, $name, $email, $level, $lineNumber);
                 $role = 'student';
                 $password = self::STUDENT_DEFAULT_PASSWORD;
@@ -79,7 +79,6 @@ class StudentBulkImportService
                     'student_number' => $number,
                     'academic_level' => trim($level),
                     'course' => trim($course),
-                    'strand' => trim($strand),
                 ];
             } elseif ($type === 'faculty') {
                 [$number, $name, $email, $dept] = array_pad($row, 4, '');
@@ -163,7 +162,7 @@ class StudentBulkImportService
         if (empty($name)) $errs[] = "Line $line: Full Name is required.";
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errs[] = "Line $line: Valid Email is required.";
         
-        $validLevels = ['Senior High School', '1st Year College', '2nd Year College', '3rd Year College'];
+        $validLevels = ['1st Year College', '2nd Year College', '3rd Year College', '4th Year College'];
         if (empty($level) || !in_array($level, $validLevels)) $errs[] = "Line $line: Valid Academic Level is required.";
 
         return ['valid' => empty($errs), 'errors' => $errs];

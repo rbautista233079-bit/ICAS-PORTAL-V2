@@ -186,13 +186,6 @@
                         if (menu) { menu.classList.toggle('hidden'); }
                     });
                 });
-
-                // Classroom detail export toggle
-                const exportToggle = document.getElementById('exportToggle');
-                const exportMenu = document.getElementById('exportMenu');
-                if (exportToggle && exportMenu) {
-                    exportToggle.addEventListener('click', () => exportMenu.classList.toggle('hidden'));
-                }
             })();
                 // Poll classroom student counts every 5 seconds
                 setInterval(async function(){
