@@ -13,11 +13,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <form action="{{ route('admin.grades') }}" method="GET" class="flex flex-wrap items-center gap-2">
-                    <select name="status" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white" onchange="this.form.submit()">
-                        <option value="">All Statuses</option>
-                        <option value="Pending" @selected(($statusFilter ?? '') === 'Pending')>Pending</option>
-                        <option value="Verified" @selected(($statusFilter ?? '') === 'Verified')>Verified</option>
-                    </select>
+
                     <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer px-2">
                         <input type="checkbox" name="history" value="1" @checked(request()->has('history')) onchange="this.form.submit()" class="rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                         View History
@@ -33,11 +29,7 @@
                         <option value="BSIT" @selected($courseFilter === 'BSIT')>BSIT</option>
                         <option value="BSHM" @selected($courseFilter === 'BSHM')>BSHM</option>
                     </select>
-                    <select name="strand" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white" onchange="this.form.submit()">
-                        <option value="">All Strands</option>
-                        <option value="ICT" @selected(($strandFilter ?? '') === 'ICT')>ICT</option>
-                        <option value="HE" @selected(($strandFilter ?? '') === 'HE')>HE</option>
-                    </select>
+
                     <select name="grading_period" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:bg-white" onchange="this.form.submit()">
                         <option value="">All Periods</option>
                         <option value="PRELIM" @selected(($gradingPeriodFilter ?? '') === 'PRELIM')>PRELIM</option>
