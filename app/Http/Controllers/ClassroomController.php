@@ -650,11 +650,12 @@ class ClassroomController extends Controller
         ]);
 
         $data = [
+            'subject_slug' => $classroom->code,
             'classroom_id' => $classroom->id,
-            'topic_id' => $validated['topic_id'],
-            'title' => $validated['title'],
-            'body' => $validated['body'],
-            'type' => $validated['type'],
+            'topic_id' => $validated['topic_id'] ?? null,
+            'title' => $validated['title'] ?? '',
+            'body' => $validated['body'] ?? null,
+            'type' => $validated['type'] ?? 'material',
             'grading_section' => $validated['grading_section'] ?? 'prelim',
         ];
 

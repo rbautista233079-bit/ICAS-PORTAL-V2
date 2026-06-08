@@ -50,17 +50,11 @@ class AdminController extends Controller
             ->whereIn('course', ['BSIT', 'BSHM'])
             ->distinct('course')
             ->count('course');
-        $totalStrands = User::where('role', 'student')
-            ->where('academic_level', 'Senior High School')
-            ->whereIn('strand', ['ICT', 'HE'])
-            ->distinct('strand')
-            ->count('strand');
         $totalAnnouncements = Announcement::count();
 
         $overview = [
             ['title' => 'Total Courses', 'value' => (string) $totalCourses],
             ['title' => 'Active Classrooms', 'value' => (string) $totalClassrooms],
-            ['title' => 'Total Strands', 'value' => (string) $totalStrands],
             ['title' => 'Total Announcements', 'value' => (string) $totalAnnouncements],
         ];
 
@@ -1573,8 +1567,14 @@ class AdminController extends Controller
     {
         abort_if($user->role !== 'faculty', 404);
 
-        $newStatus = $request->input('status') === 'active' ? 'inactive' : 'active';
+        $newStatus = $request->input('status');
+        if (! in_array($newStatus, ['active', 'inactive'])) {
+            $newStatus = $user->status === 'active' ? 'inactive' : 'active';
+        }
+        
         $user->update(['status' => $newStatus]);
+
+        AuditTrail::log('Update', 'Faculty Directory', 'Admin ' . auth()->user()->name . ' (ID: ' . auth()->id() . ') ' . ($newStatus === 'active' ? 'activated' : 'deactivated') . ' faculty ' . $user->name . ' (ID: ' . $user->id . ')');
 
         return back()->with('status', "Faculty account for {$user->name} has been ".($newStatus === 'active' ? 'activated' : 'deactivated').'.');
     }

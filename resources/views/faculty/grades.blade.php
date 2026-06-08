@@ -151,19 +151,6 @@
                         }
 
                         try {
-                            const response = await fetch("{{ route('faculty.grades.load-today-attendance') }}", {
-                                method: 'GET',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                },
-                                body: JSON.stringify({
-                                    student_class: studentClass,
-                                    attendance_date: attendanceDate,
-                                }),
-                            });
-
-                            // Actually, GET with body is not standard. Use query params instead
                             const url = new URL("{{ route('faculty.grades.load-today-attendance') }}", window.location.origin);
                             url.searchParams.append('student_class', studentClass);
                             url.searchParams.append('attendance_date', attendanceDate);

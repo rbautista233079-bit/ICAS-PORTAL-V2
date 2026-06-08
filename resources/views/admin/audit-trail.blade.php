@@ -82,13 +82,24 @@
                                 default   => 'bg-slate-100 text-slate-600',
                             };
                         @endphp
-                        <tr class="hover:bg-slate-50 transition-colors">
+                        <tr class="hover:bg-slate-50 transition-colors align-top">
                             <td class="px-5 py-3.5 text-slate-500 whitespace-nowrap text-xs">{{ $action['time'] }}</td>
                             <td class="px-5 py-3.5 font-semibold text-slate-900 whitespace-nowrap">{{ $action['user'] }}</td>
                             <td class="px-5 py-3.5"><span class="inline-flex rounded-full {{ $roleBadge }} px-2.5 py-0.5 text-xs font-semibold capitalize">{{ $action['role'] }}</span></td>
                             <td class="px-5 py-3.5 text-center"><span class="inline-flex rounded-full {{ $actionBadge }} px-3 py-1 text-xs font-bold">{{ $action['action'] }}</span></td>
                             <td class="px-5 py-3.5 text-slate-600">{{ $action['module'] }}</td>
-                            <td class="px-5 py-3.5 text-slate-500 max-w-xs truncate">{{ $action['detail'] }}</td>
+                            <td class="px-5 py-3.5 text-slate-500 max-w-sm">
+                                <div x-data="{ expanded: false }">
+                                    <div :class="expanded ? 'whitespace-normal break-words' : 'line-clamp-2 break-words'">
+                                        {{ $action['detail'] }}
+                                    </div>
+                                    @if(strlen($action['detail']) > 60)
+                                        <button @click="expanded = !expanded" class="text-xs font-semibold text-green-600 hover:text-green-700 mt-1 focus:outline-none">
+                                            <span x-text="expanded ? 'View less' : 'View more'"></span>
+                                        </button>
+                                    @endif
+                                </div>
+                            </td>
                             <td class="px-5 py-3.5 text-slate-400 font-mono text-xs">{{ $action['ip'] }}</td>
                         </tr>
                     @empty

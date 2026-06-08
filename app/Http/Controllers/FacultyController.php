@@ -356,14 +356,23 @@ class FacultyController extends Controller
             }
 
             $settings = new SystemSettingsService;
-            FacultyAttendanceRecord::query()->create(array_merge([
+            
+            // Safely build the insert data to prevent strict mode SQL errors with empty strings or missing keys
+            $insertData = [
                 'faculty_user_id' => Auth::id(),
+                'student_user_id' => $student?->id,
+                'student_name' => $data['student_name'] ?? '',
+                'student_class' => $data['student_class'] ?? '',
                 'course_strand' => $studentCourse,
                 'academic_level' => $studentLevel,
+                'subject_code' => $data['subject_code'] ?? ($data['student_class'] ?? ''),
+                'attendance_date' => $data['attendance_date'] ?? now()->toDateString(),
+                'status' => $data['status'] ?? 'Present',
                 'academic_year' => $settings->get('academic_year'),
                 'semester' => $settings->get('current_semester'),
-                'student_user_id' => $student?->id,
-            ], $data));
+            ];
+
+            FacultyAttendanceRecord::query()->create($insertData);
 
             return redirect()
                 ->route('faculty.grades')
